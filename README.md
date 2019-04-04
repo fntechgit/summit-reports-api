@@ -12,21 +12,30 @@ After cloning:
   * pip install -r requirements.txt
   * if you add requirements update file by running "pip freeze > requirements.txt"
   
-- create 'reports_api' DB
-  * also check in settings.py the DB credentials
+- set Openstack DB credentials from .env
   
   
   Run Project : 
+  - python ./manage.py makemigrations
+  - python ./manage.py migrate
   - python ./manage.py runserver
   - go to http://localhost:8000/reports?access_token=xxx
   - Example: 
-    query {
-        allQuestions(name: "FirstName") {
-            edges {
-              node {
-                id,
-                name
+    TAG REPORT 
+    {
+      allTags(hasEventsFromSummit:25) {
+        edges {
+          node {
+            id
+            tag
+            events (summit_Id:25, published:true){
+              edges {
+                node {
+                  id
+                }
               }
             }
+          }
         }
+      }
     }
