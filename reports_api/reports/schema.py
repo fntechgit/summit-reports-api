@@ -12,12 +12,12 @@
 """
 
 import django_filters
-from django.db.models import Count, Avg
-from graphene import relay, String, Node
+from django.db.models import Count, Avg, Q, FilteredRelation
+from graphene import relay, String, Node, Int, ObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from graphene_django.types import DjangoObjectType
-from reports_api.reports.models \
-    import \
+
+from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag
@@ -30,6 +30,15 @@ class CustomNode(relay.Node):
     @staticmethod
     def to_global_id(type, id):
         return id
+
+class CountableConnectionBase(relay.Connection):
+    total_count = Int()
+
+    def resolve_total_count(self, info, **kwargs):
+        return self.iterable.count()
+
+    class Meta:
+        abstract = True
 
 
 class MemberNode(DjangoObjectType):
@@ -59,12 +68,36 @@ class SummitNode(DjangoObjectType):
         filter_fields = ['id','title']
         interfaces = (CustomNode, )
 
-
 class SpeakerNode(DjangoObjectType):
     class Meta:
         model = Speaker
         filter_fields = ['id','first_name','last_name']
         interfaces = (CustomNode, )
+        connection_class = CountableConnectionBase
+
+class SpeakerFilter(django_filters.FilterSet):
+    summit__id = django_filters.NumberFilter(method='has_events_from_summit_filter')
+    sort_by = django_filters.CharFilter(method='sort')
+    search = django_filters.CharFilter(method='search_filter')
+
+    class Meta:
+        model = Speaker
+        fields = ['id', 'first_name', 'last_name']
+
+    def has_events_from_summit_filter(self, queryset, name, value):
+
+        new_query = queryset.annotate(presentations_published=FilteredRelation('presentations', condition=Q(presentations__published=True)));
+        #print(new_query.query)
+        return new_query
+        # return queryset.filter(presentations__summit__id=value).annotate(presentations_count=Count('presentations')).filter(presentations_count__gt=0)
+
+    def sort(self, queryset, name, value):
+        return queryset.order_by(value);
+
+    def search_filter(self, queryset, name, value):
+        new_query = queryset.filter(presentations_published__title__contains = value);
+        #print(new_query.query)
+        return new_query
 
 class RegistrationNode(DjangoObjectType):
     class Meta:
@@ -85,6 +118,7 @@ class SummitEventNode(DjangoObjectType):
         model = SummitEvent
         filter_fields = ['id','title', 'summit__id', 'published']
         interfaces = (CustomNode,)
+        connection_class = CountableConnectionBase
 
 
 class EventTypeNode(DjangoObjectType):
@@ -125,6 +159,7 @@ class RsvpNode(DjangoObjectType):
         model = Rsvp
         filter_fields = ['id', 'event__id']
         interfaces = (CustomNode,)
+        connection_class = CountableConnectionBase
 
 
 class RsvpAnswerNode(DjangoObjectType):
@@ -165,12 +200,9 @@ class SpeakerPromoCodeNode(DjangoObjectType):
 class PresentationNode(DjangoObjectType):
     class Meta:
         model = Presentation
-        filter_fields = [
-            'id',
-            'level',
-            'summit__id'
-        ]
+        filter_fields = ['id', 'level', 'summit__id']
         interfaces = (CustomNode,)
+        connection_class = CountableConnectionBase
 
 class PresentationMaterialNode(DjangoObjectType):
     class Meta:
@@ -190,10 +222,11 @@ class TagNode(DjangoObjectType):
         model = Tag
         filter_fields = ['id']
         interfaces = (CustomNode,)
+        connection_class = CountableConnectionBase
 
 class TagFilter(django_filters.FilterSet):
     tag = django_filters.CharFilter(field_name='tag')
-    has_events_from_summit = django_filters.NumberFilter(method='has_events_from_summit_filter')
+    summit__id = django_filters.NumberFilter(method='has_events_from_summit_filter')
 
     class Meta:
         model = Tag
@@ -217,7 +250,7 @@ class Query(object):
     all_summits = DjangoFilterConnectionField(SummitNode)
 
     speaker = relay.Node.Field(SpeakerNode)
-    all_speakers = DjangoFilterConnectionField(SpeakerNode)
+    all_speakers = DjangoFilterConnectionField(SpeakerNode, filterset_class=SpeakerFilter)
 
     registration = relay.Node.Field(RegistrationNode)
 
