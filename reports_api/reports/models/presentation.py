@@ -14,6 +14,7 @@
 from django.db import models
 from .speaker import Speaker
 from .summit_event import SummitEvent
+import django_filters
 
 
 class Presentation(SummitEvent):
@@ -47,3 +48,23 @@ class PresentationSpeakers(models.Model):
     class Meta:
         app_label = 'reports'
         db_table = 'Presentation_Speakers'
+
+
+class PresentationFilter(django_filters.FilterSet):
+    search = django_filters.CharFilter(method='search_filter')
+    summit_id = django_filters.NumberFilter(field_name='summit__id')
+
+    class Meta:
+        model = Presentation
+        fields = ['title', 'abstract', 'summit__id']
+
+    def search_filter(self, queryset, name, value):
+        queryset = queryset.filter(
+            models.Q(title__icontains=value) |
+            models.Q(abstract__icontains=value) |
+            models.Q(speakers__last_name=value) |
+            models.Q(speakers__member__email=value)
+        )
+
+        return queryset
+

@@ -36,5 +36,6 @@ from graphene_django.views import GraphQLView
 from reports_api.reports import views
 
 urlpatterns = [
-    path('reports', GraphQLView.as_view(graphiql=True))
+    path('reports', GraphQLView.as_view(graphiql=True)),
+    path('report/tag-report', views.get_tag_report)
 ]

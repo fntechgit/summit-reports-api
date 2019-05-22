@@ -14,6 +14,7 @@
 from django.db import models
 from .speaker import Speaker
 from .summit import Summit
+import django_filters
 
 
 class SpeakerAttendance(models.Model):

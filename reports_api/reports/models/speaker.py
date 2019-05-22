@@ -13,6 +13,8 @@
 
 from django.db import models
 from .member import Member
+import django_filters
+from django.db.models import Count, Avg, Q, FilteredRelation
 
 
 class Speaker(models.Model):
@@ -35,3 +37,21 @@ class Speaker(models.Model):
         db_table = 'PresentationSpeaker'
 
 
+class SpeakerFilter(django_filters.FilterSet):
+    summit__id = django_filters.NumberFilter(method='has_events_from_summit_filter')
+    sort_by = django_filters.CharFilter(method='sort')
+    search = django_filters.CharFilter(method='search_filter')
+
+    class Meta:
+        model = Speaker
+        fields = ['id', 'first_name', 'last_name']
+
+    def has_events_from_summit_filter(self, queryset, name, value):
+        return queryset.filter(presentations__summit__id=value).annotate(presentations_count=Count('presentations')).filter(presentations_count__gt=0)
+
+    def sort(self, queryset, name, value):
+        return queryset.order_by(value);
+
+    def search_filter(self, queryset, name, value):
+        new_query = queryset.filter(presentations_published__title__contains = value);
+        return new_query

@@ -22,7 +22,7 @@ from .tag import Tag
 class SummitEvent(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)
     title = models.TextField(db_column='Title')
-    abstract = models.TextField(db_column='Abstract')
+    abstract = models.TextField(db_column='Abstract', null=True)
     social_summary = models.TextField(db_column='SocialSummary')
     start_date = models.DateTimeField(db_column='StartDate', null=True)
     end_date = models.DateTimeField(db_column='EndDate', null=True)
@@ -31,19 +31,19 @@ class SummitEvent(models.Model):
     head_count = models.IntegerField(db_column='HeadCount')
 
     summit = models.ForeignKey(
-        Summit, related_name='events', db_column='SummitID', on_delete=models.CASCADE)
+        Summit, related_name='events', db_column='SummitID', on_delete=models.CASCADE, null=True)
 
     type = models.ForeignKey(
-        EventType, related_name='events', db_column='TypeID', on_delete=models.CASCADE)
+        EventType, related_name='events', db_column='TypeID', on_delete=models.CASCADE, null=True)
 
     category = models.ForeignKey(
-        EventCategory, related_name='events', db_column='CategoryID', on_delete=models.CASCADE)
+        EventCategory, related_name='events', db_column='CategoryID', on_delete=models.CASCADE, null=True)
 
     location = models.ForeignKey(
-        AbstractLocation, related_name='events', db_column='LocationID', on_delete=models.CASCADE)
+        AbstractLocation, related_name='events', db_column='LocationID', on_delete=models.CASCADE, null=True)
 
     tags = models.ManyToManyField(Tag, related_name='events', through='SummitEventTags',
-                                      through_fields=('event_id', 'tag_id'))
+                                      through_fields=('event_id', 'tag_id'), null=True)
 
 
     def __str__(self):

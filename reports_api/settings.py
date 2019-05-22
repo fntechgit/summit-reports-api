@@ -34,15 +34,19 @@ ALLOWED_HOSTS = ['.openstack.org', '.devbranch.openstack.org', 'localhost']
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.staticfiles',
     'reports_api.reports',
+    'django.contrib.staticfiles',
+    'django.contrib.contenttypes',
     'graphene_django',
     'django_filters',
-    'corsheaders',
+    'corsheaders'
 ]
 
 GRAPHENE = {
-    'SCHEMA': 'reports_api.schema.schema'
+    'SCHEMA': 'reports_api.schema.schema',
+    'MIDDLEWARE': [
+        'graphene_django_extras.ExtraGraphQLDirectiveMiddleware'
+    ]
 }
 
 MIDDLEWARE = [
@@ -168,3 +172,12 @@ RS_CLIENT_SECRET = os.getenv("RS_CLIENT_SECRET")
 
 # IDP
 IDP_BASE_URL = os.getenv("IDP_BASE_URL")
+
+# GRAPHENE deafults
+GRAPHENE_DJANGO_EXTRAS = {
+    'DEFAULT_PAGINATION_CLASS': 'graphene_django_extras.paginations.LimitOffsetGraphqlPagination',
+    'DEFAULT_PAGE_SIZE': 20,
+    'MAX_PAGE_SIZE': 50,
+    'CACHE_ACTIVE': True,
+    'CACHE_TIMEOUT': 300    # seconds
+}

@@ -12,6 +12,8 @@
 """
 
 from django.db import models
+import django_filters
+from django.db.models import Count, Avg, Q, FilteredRelation
 
 
 class Tag(models.Model):
@@ -25,3 +27,14 @@ class Tag(models.Model):
         app_label = 'reports'
         db_table = 'Tag'
 
+
+class TagFilter(django_filters.FilterSet):
+    tag = django_filters.CharFilter(field_name='tag')
+    summit__id = django_filters.NumberFilter(method='has_events_from_summit_filter')
+
+    class Meta:
+        model = Tag
+        fields = ['id', 'tag']
+
+    def has_events_from_summit_filter(self, queryset, name, value):
+        return queryset.filter(events__summit__id=value).annotate(events_count=Count('events')).filter(events_count__gt=0)

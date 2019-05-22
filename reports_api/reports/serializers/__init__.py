@@ -11,4 +11,4 @@
  * limitations under the License.
 """
 
-from .survey_serializer import SurveySerializer
+from .presentation_serializer import PresentationSerializer
