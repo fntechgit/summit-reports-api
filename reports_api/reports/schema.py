@@ -148,35 +148,48 @@ class TagNode(DjangoObjectType):
 
 # ---------------------------------------------------------------------------
 
-
-class PresentationModelType(DjangoSerializerType):
-
-    class Meta:
-        serializer_class = PresentationSerializer
-        pagination = LimitOffsetGraphqlPagination(default_limit=25, ordering="id")
-
-
 class PresentationType(DjangoObjectType):
+    speaker_count = Int()
+    attendee_count = Int()
+
+    def resolve_speaker_count(self, info):
+        return self.speakers.count()
+
+    def resolve_attendee_count(self, info):
+        return self.attendees.count()
 
     class Meta:
         model = Presentation
 
 
+class PresentationModelType(DjangoSerializerType):
+
+    class Meta:
+        serializer_class = PresentationSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+
 class SpeakerType(DjangoObjectType):
     presentations = DjangoListField(PresentationType, summitId=Int())
+    presentation_count = Int()
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
 
+    def resolve_presentation_count(self, info):
+        return self.presentations.count()
+
     class Meta(object):
         model = Speaker
-        
+
 
 class SpeakerModelType(DjangoSerializerType):
 
     class Meta(object):
         serializer_class = SpeakerSerializer
-        pagination = LimitOffsetGraphqlPagination(default_limit=25, ordering="id")
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
 
 
 class Query(ObjectType):
