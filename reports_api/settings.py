@@ -177,7 +177,7 @@ IDP_BASE_URL = os.getenv("IDP_BASE_URL")
 GRAPHENE_DJANGO_EXTRAS = {
     'DEFAULT_PAGINATION_CLASS': 'graphene_django_extras.paginations.LimitOffsetGraphqlPagination',
     'DEFAULT_PAGE_SIZE': 20,
-    'MAX_PAGE_SIZE': 50,
+    'MAX_PAGE_SIZE': 3000,
     'CACHE_ACTIVE': True,
     'CACHE_TIMEOUT': 300    # seconds
 }

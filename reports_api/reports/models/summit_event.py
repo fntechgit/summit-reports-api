@@ -43,7 +43,7 @@ class SummitEvent(models.Model):
         AbstractLocation, related_name='events', db_column='LocationID', on_delete=models.CASCADE, null=True)
 
     tags = models.ManyToManyField(Tag, related_name='events', through='SummitEventTags',
-                                      through_fields=('event_id', 'tag_id'), null=True)
+                                      through_fields=('event_id', 'tag_id'))
 
 
     def __str__(self):

@@ -56,7 +56,7 @@ class PresentationFilter(django_filters.FilterSet):
 
     class Meta:
         model = Presentation
-        fields = ['title', 'abstract', 'summit__id']
+        fields = ['title', 'abstract', 'summit__id', 'published']
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(

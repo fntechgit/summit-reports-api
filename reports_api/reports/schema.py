@@ -11,16 +11,18 @@
  * limitations under the License.
 """
 
-from graphene import Int, ObjectType, List, String
-from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
+from graphene import Int, ObjectType, List, String, Argument
+from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
 from django_filters import filters
+from graphene_django.filter import DjangoFilterConnectionField
+from graphene_django.fields import DjangoListField
 
 from reports_api.reports.models import \
-    SummitEvent, Presentation, PresentationFilter, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
+    SummitEvent, Presentation, PresentationFilter, EventCategory, Summit, Speaker, SpeakerFilter, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag
 
-from .serializers import PresentationSerializer
+from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer
 
 
 class MemberNode(DjangoObjectType):
@@ -62,24 +64,6 @@ class SpeakerPromoCodeNode(DjangoObjectType):
     class Meta:
         model = SpeakerPromoCode
         filter_fields = ['id', 'summit__id']
-
-class SpeakerNode(DjangoObjectType):
-    class Meta:
-        model = Speaker
-        filter_fields = ['id','first_name','last_name']
-
-    attendances = List(SpeakerAttendanceNode, summit_id=Int())
-
-    promo_codes = List(SpeakerPromoCodeNode, summit_id=Int())
-
-    def resolve_attendances(self, info, summit_id):
-        qs = self.attendances;
-        return qs.filter(summit__id= summit_id)
-
-    def resolve_promo_codes(self, info, summit_id):
-        qs = self.promo_codes;
-        return qs.filter(summit__id= summit_id)
-
 
 class SummitEventNode(DjangoObjectType):
     class Meta:
@@ -145,15 +129,6 @@ class RsvpQuestionValueNode(DjangoObjectType):
         filter_fields = ['id']
 
 
-class PresentationModelType(DjangoSerializerType):
-
-    class Meta:
-        serializer_class = PresentationSerializer
-        pagination = LimitOffsetGraphqlPagination(default_limit=25, ordering="-id")
-
-
-
-
 class PresentationMaterialNode(DjangoObjectType):
     class Meta:
         model = PresentationMaterial
@@ -171,7 +146,42 @@ class TagNode(DjangoObjectType):
         filter_fields = ['id']
 
 
+# ---------------------------------------------------------------------------
+
+
+class PresentationModelType(DjangoSerializerType):
+
+    class Meta:
+        serializer_class = PresentationSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=25, ordering="id")
+
+
+class PresentationType(DjangoObjectType):
+
+    class Meta:
+        model = Presentation
+
+
+class SpeakerType(DjangoObjectType):
+    presentations = DjangoListField(PresentationType, summitId=Int())
+
+    def resolve_presentations(self, info, summitId):
+        return self.presentations.filter(summit_id=summitId)
+
+    class Meta(object):
+        model = Speaker
+        
+
+class SpeakerModelType(DjangoSerializerType):
+
+    class Meta(object):
+        serializer_class = SpeakerSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=25, ordering="id")
+
+
 class Query(ObjectType):
     presentations = PresentationModelType.ListField(filterset_class=PresentationFilter)
+    speakers = SpeakerModelType.ListField(filterset_class=SpeakerFilter)
+
 
 

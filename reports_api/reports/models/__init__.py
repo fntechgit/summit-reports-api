@@ -16,7 +16,7 @@ from .event_type import EventType
 from .event_category import EventCategory
 from .member import Member
 from .presentation import Presentation, PresentationFilter
-from .speaker import Speaker
+from .speaker import Speaker, SpeakerFilter
 from .summit import Summit
 from .organization import Organization
 from .speaker_attendance import SpeakerAttendance
