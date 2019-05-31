@@ -36,23 +36,3 @@ class Speaker(models.Model):
         app_label = 'reports'
         db_table = 'PresentationSpeaker'
 
-
-class SpeakerFilter(django_filters.FilterSet):
-    summit_id = django_filters.NumberFilter(method='has_events_from_summit_filter')
-    search = django_filters.CharFilter(method='search_filter')
-
-    class Meta:
-        model = Speaker
-        fields = ['id', 'first_name', 'last_name']
-
-    def has_events_from_summit_filter(self, queryset, name, value):
-        return queryset.filter(presentations__summit__id=value).annotate(presentations_count=Count('presentations')).filter(presentations_count__gt=0)
-
-    def search_filter(self, queryset, name, value):
-        queryset = queryset.filter(
-            models.Q(last_name=value) |
-            models.Q(member__email=value) |
-            models.Q(presentations__title__icontains=value)
-        )
-
-        return queryset

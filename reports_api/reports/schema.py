@@ -11,18 +11,19 @@
  * limitations under the License.
 """
 
-from graphene import Int, ObjectType, List, String, Argument
+from graphene import Int, ObjectType, Float, String
 from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
-from django_filters import filters
-from graphene_django.filter import DjangoFilterConnectionField
 from graphene_django.fields import DjangoListField
+from django.db import models
 
 from reports_api.reports.models import \
-    SummitEvent, Presentation, PresentationFilter, EventCategory, Summit, Speaker, SpeakerFilter, SpeakerAttendance, SpeakerRegistration, \
+    SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
-    Rsvp, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag
+    Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag
 
-from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer
+from reports_api.reports.filters.model_filters import PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter
+
+from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer
 
 
 class MemberNode(DjangoObjectType):
@@ -66,6 +67,7 @@ class SpeakerPromoCodeNode(DjangoObjectType):
         filter_fields = ['id', 'summit__id']
 
 class SummitEventNode(DjangoObjectType):
+
     class Meta:
         model = SummitEvent
         filter_fields = ['id','title', 'summit__id', 'published']
@@ -77,14 +79,8 @@ class EventTypeNode(DjangoObjectType):
         filter_fields = ['id','type']
 
 
-class EventCategoryNode(DjangoObjectType):
-    class Meta:
-        model = EventCategory
-        filter_fields = ['id','title', 'summit__id']
-
-
 class EventFeedbackNode(DjangoObjectType):
-    class Meta:
+     class Meta:
         model = EventFeedback
         filter_fields = ['id','owner__id', 'event__id']
 
@@ -98,11 +94,6 @@ class VenueRoomNode(DjangoObjectType):
     class Meta:
         model = VenueRoom
         filter_fields = ['id','name','venue']
-
-class RsvpNode(DjangoObjectType):
-    class Meta:
-        model = Rsvp
-        filter_fields = ['id', 'event__id']
 
 
 class RsvpAnswerNode(DjangoObjectType):
@@ -128,6 +119,15 @@ class RsvpQuestionValueNode(DjangoObjectType):
         model = RsvpQuestionValue
         filter_fields = ['id']
 
+class RsvpTemplateNode(DjangoObjectType):
+    class Meta:
+        model = RsvpTemplate
+        filter_fields = ['id', 'title']
+
+class RsvpNode(DjangoObjectType):
+    class Meta:
+        model = Rsvp
+        filter_fields = ['id', 'event__id']
 
 class PresentationMaterialNode(DjangoObjectType):
     class Meta:
@@ -146,20 +146,112 @@ class TagNode(DjangoObjectType):
         filter_fields = ['id']
 
 
-# ---------------------------------------------------------------------------
-
-class PresentationType(DjangoObjectType):
+class PresentationNode(DjangoObjectType):
     speaker_count = Int()
+    speaker_names = String()
     attendee_count = Int()
+    rsvp_count = Int()
+    feedback_count = Int()
+    feedback_avg = Float()
 
     def resolve_speaker_count(self, info):
         return self.speakers.count()
 
+    def resolve_speaker_names(self, info):
+        speakers = list(self.speakers.values())
+        speaker_names = ', '.join(str(x.get("first_name") + " " + x.get("last_name")) for x in speakers)
+        return speaker_names
+
     def resolve_attendee_count(self, info):
         return self.attendees.count()
 
+    def resolve_rsvp_count(self, info):
+        return self.rsvps.count()
+
+    def resolve_feedback_count(self, info):
+        return self.feedback.count()
+
+    def resolve_feedback_avg(self, info):
+        rateAvg = self.feedback.aggregate(models.Avg('rate'))
+        return round(rateAvg.get('rate__avg', 0), 2)
+
     class Meta:
         model = Presentation
+
+
+class SpeakerNode(DjangoObjectType):
+    presentations = DjangoListField(PresentationNode, summitId=Int())
+    presentation_count = Int()
+    feedback_count = Int(summitId=Int())
+    feedback_avg = Float(summitId=Int())
+
+    def resolve_presentations(self, info, summitId):
+        return self.presentations.filter(summit_id=summitId)
+
+    def resolve_presentation_count(self, info):
+        return self.presentations.count()
+
+    def resolve_feedback_count(self, info, summitId=0):
+        queryset = EventFeedback.objects.filter(event__presentation__speakers__id=self.id)
+        if (summitId):
+            queryset = queryset.filter(event__summit__id=summitId)
+        return queryset.count()
+
+    def resolve_feedback_avg(self, info, summitId=0):
+        queryset = EventFeedback.objects.filter(event__presentation__speakers__id=self.id)
+        if (summitId):
+            queryset = queryset.filter(event__summit__id=summitId)
+
+        result = queryset.aggregate(models.Avg('rate'))
+        avgRate = result.get('rate__avg')
+
+        if avgRate :
+            return round(avgRate, 2)
+        else :
+            return 0
+
+    class Meta(object):
+        model = Speaker
+
+
+
+class EventCategoryNode(DjangoObjectType):
+    feedback_count = Int()
+    feedback_avg = Float()
+
+    def resolve_feedback_count(self, info):
+        return EventFeedback.objects.filter(event__summit__id=self.summit.id).filter(event__category__id=self.id).count()
+
+    def resolve_feedback_avg(self, info):
+        rateAvg = EventFeedback.objects.filter(event__summit__id=self.summit.id).filter(event__category__id=self.id).aggregate(models.Avg('rate'))
+        return round(rateAvg.get('rate__avg', 0), 2)
+
+    class Meta:
+        model = EventCategory
+        filter_fields = ['id','title', 'summit__id']
+
+
+
+# ---------------------------------------------------------------------------------
+
+
+class EventFeedbackListType(DjangoListObjectType):
+    avg_rate = Float()
+
+    def resolve_avg_rate(self, info):
+        rateAvg = self.results.aggregate(models.Avg('rate'))
+        return round(rateAvg.get('rate__avg', 0), 2)
+
+    class Meta:
+        model = EventFeedback
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="-rate")
+        filter_fields = ["avg"]
+
+
+
+# ---------------------------------------------------------------------------------
+
+
 
 
 class PresentationModelType(DjangoSerializerType):
@@ -169,21 +261,6 @@ class PresentationModelType(DjangoSerializerType):
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
-
-class SpeakerType(DjangoObjectType):
-    presentations = DjangoListField(PresentationType, summitId=Int())
-    presentation_count = Int()
-
-    def resolve_presentations(self, info, summitId):
-        return self.presentations.filter(summit_id=summitId)
-
-    def resolve_presentation_count(self, info):
-        return self.presentations.count()
-
-    class Meta(object):
-        model = Speaker
-
-
 class SpeakerModelType(DjangoSerializerType):
 
     class Meta(object):
@@ -191,10 +268,34 @@ class SpeakerModelType(DjangoSerializerType):
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
+class RsvpModelType(DjangoSerializerType):
+
+    class Meta(object):
+        serializer_class = RsvpSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+class EventCategoryModelType(DjangoSerializerType):
+
+    class Meta(object):
+        serializer_class = EventCategorySerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+
+# ************************************************************************************
+
+
 
 class Query(ObjectType):
     presentations = PresentationModelType.ListField(filterset_class=PresentationFilter)
+    presentation = DjangoObjectField(PresentationNode)
     speakers = SpeakerModelType.ListField(filterset_class=SpeakerFilter)
+    rsvps = RsvpModelType.ListField(filterset_class=RsvpFilter)
+    rsvp_template = DjangoObjectField(RsvpTemplateNode)
+    feedbacks = DjangoListObjectField(EventFeedbackListType, filterset_class=EventFeedbackFilter)
+    categories = EventCategoryModelType.ListField(filterset_class=EventCategoryFilter)
+    #feedbacks = EventFeedbackModelType.ListField(filterset_class=EventFeedbackFilter)
 
 
 

@@ -14,6 +14,7 @@
 from django.db import models
 from reports_api.reports.models.member import Member
 from reports_api.reports.models.summit_event import SummitEvent
+from .rsvp_template import RsvpTemplate
 
 
 class RsvpQuestion(models.Model):
@@ -21,6 +22,9 @@ class RsvpQuestion(models.Model):
     name = models.TextField(db_column='Name')
     label = models.TextField(db_column='Label')
     order = models.IntegerField(db_column='Order')
+
+    template = models.ForeignKey(
+        RsvpTemplate, related_name='questions', db_column='RSVPTemplateID', on_delete=models.CASCADE)
 
 
     def __str__(self):

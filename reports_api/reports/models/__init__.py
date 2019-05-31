@@ -15,8 +15,8 @@ from .summit_event import SummitEvent
 from .event_type import EventType
 from .event_category import EventCategory
 from .member import Member
-from .presentation import Presentation, PresentationFilter
-from .speaker import Speaker, SpeakerFilter
+from .presentation import Presentation
+from .speaker import Speaker
 from .summit import Summit
 from .organization import Organization
 from .speaker_attendance import SpeakerAttendance
@@ -26,8 +26,9 @@ from .abstract_location import AbstractLocation
 from .venue_room import VenueRoom
 from .promo_code import PromoCode, SpeakerPromoCode
 from .event_feedback import EventFeedback
-from .rsvp.rsvp import Rsvp
+from .rsvp.rsvp_template import RsvpTemplate
 from .rsvp.rsvp_question import RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue
+from .rsvp.rsvp import Rsvp
 from .rsvp.rsvp_answer import RsvpAnswer
 from .sent_email import SentEmail
 from .presentation_material import PresentationMaterial

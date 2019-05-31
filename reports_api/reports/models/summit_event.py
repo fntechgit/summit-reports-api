@@ -17,6 +17,7 @@ from .event_category import EventCategory
 from .event_type import EventType
 from .abstract_location import AbstractLocation
 from .tag import Tag
+from .rsvp.rsvp_template import RsvpTemplate
 
 
 class SummitEvent(models.Model):
@@ -41,6 +42,9 @@ class SummitEvent(models.Model):
 
     location = models.ForeignKey(
         AbstractLocation, related_name='events', db_column='LocationID', on_delete=models.CASCADE, null=True)
+
+    rsvp_template = models.ForeignKey(
+        RsvpTemplate, related_name='events', db_column='RSVPTemplateID', on_delete=models.CASCADE, null=True)
 
     tags = models.ManyToManyField(Tag, related_name='events', through='SummitEventTags',
                                       through_fields=('event_id', 'tag_id'))

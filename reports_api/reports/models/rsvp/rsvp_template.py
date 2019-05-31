@@ -12,20 +12,12 @@
 """
 
 from django.db import models
-from reports_api.reports.models.member import Member
-from reports_api.reports.models.summit_event import SummitEvent
 
 
-class Rsvp(models.Model):
+class RsvpTemplate(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)
-    been_emailed = models.BooleanField(db_column='BeenEmailed')
-    seat_type = models.TextField(db_column='SeatType')
-
-    submitter = models.ForeignKey(
-        Member, related_name='rsvps', db_column='SubmittedByID', on_delete=models.CASCADE)
-
-    event = models.ForeignKey(
-        SummitEvent, related_name='rsvps', db_column='EventID', on_delete=models.CASCADE)
+    title = models.TextField(db_column='Title')
+    enabled = models.BooleanField(db_column='Enabled')
 
 
     def __str__(self):
@@ -33,4 +25,6 @@ class Rsvp(models.Model):
 
     class Meta:
         app_label = 'reports'
-        db_table = 'RSVP'
+        db_table = 'RSVPTemplate'
+
+
