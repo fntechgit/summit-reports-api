@@ -21,7 +21,8 @@ from reports_api.reports.models import \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag
 
-from reports_api.reports.filters.model_filters import PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter
+from reports_api.reports.filters.model_filters import \
+    PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter
 
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer
 
@@ -141,6 +142,11 @@ class PresentationVideoNode(DjangoObjectType):
 
 
 class TagNode(DjangoObjectType):
+    event_count = Int(summitId=Int())
+
+    def resolve_event_count(self, info, summitId):
+        return self.events.filter(summit__id=summitId).count()
+
     class Meta:
         model = Tag
         filter_fields = ['id']
@@ -153,6 +159,8 @@ class PresentationNode(DjangoObjectType):
     rsvp_count = Int()
     feedback_count = Int()
     feedback_avg = Float()
+    tag_names = String()
+    youtube_id = String()
 
     def resolve_speaker_count(self, info):
         return self.speakers.count()
@@ -174,6 +182,15 @@ class PresentationNode(DjangoObjectType):
     def resolve_feedback_avg(self, info):
         rateAvg = self.feedback.aggregate(models.Avg('rate'))
         return round(rateAvg.get('rate__avg', 0), 2)
+
+    def resolve_tag_names(self, info):
+        tags = list(self.tags.values())
+        tag_names = ', '.join(x.get("tag") for x in tags)
+        return tag_names
+
+    def resolve_youtube_id(self, info):
+        video = self.materials.exclude(presentationvideo__isnull=True).first().presentationvideo;
+        return video.youtube_id if video else 'N/A';
 
     class Meta:
         model = Presentation
@@ -248,6 +265,14 @@ class EventFeedbackListType(DjangoListObjectType):
         filter_fields = ["avg"]
 
 
+class TagListType(DjangoListObjectType):
+
+    class Meta:
+        model = Tag
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="tag")
+        filter_fields = ["tag", "events"]
+
+
 
 # ---------------------------------------------------------------------------------
 
@@ -295,6 +320,7 @@ class Query(ObjectType):
     rsvp_template = DjangoObjectField(RsvpTemplateNode)
     feedbacks = DjangoListObjectField(EventFeedbackListType, filterset_class=EventFeedbackFilter)
     categories = EventCategoryModelType.ListField(filterset_class=EventCategoryFilter)
+    tags = DjangoListObjectField(TagListType, filterset_class=TagFilter)
     #feedbacks = EventFeedbackModelType.ListField(filterset_class=EventFeedbackFilter)
 
 

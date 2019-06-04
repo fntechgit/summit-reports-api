@@ -1,4 +1,4 @@
-from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory
+from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag
 import django_filters
 from django.db import models
 
@@ -24,6 +24,11 @@ class PresentationFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(field_name='summit__id')
     is_rsvp = django_filters.BooleanFilter(method='rsvp_filter')
     has_feedback = django_filters.BooleanFilter(method='feedback_filter')
+    track = django_filters.BaseInFilter(field_name='category__id')
+    room = django_filters.BaseInFilter(field_name='location__id')
+    tag_id = django_filters.NumberFilter(field_name='tags__id')
+    has_video = django_filters.BooleanFilter(method='video_filter')
+
 
     class Meta:
         model = Presentation
@@ -36,7 +41,13 @@ class PresentationFilter(django_filters.FilterSet):
             models.Q(speakers__last_name=value) |
             models.Q(speakers__member__email=value)
         )
+        return queryset.distinct()
 
+    def room_filter(self, queryset, name, value):
+        queryset = queryset.filter(
+            models.Q(category__title=value) |
+            models.Q(category__code=value)
+        )
         return queryset
 
     def rsvp_filter(self, queryset, name, value):
@@ -45,6 +56,10 @@ class PresentationFilter(django_filters.FilterSet):
 
     def feedback_filter(self, queryset, name, value):
         return queryset.annotate(feedback_count=models.Count('feedback'), rate=models.Avg('feedback__rate')).filter(feedback_count__gt=0)
+
+    def video_filter(self, queryset, name, value):
+        return queryset.annotate(video_count=models.Count('materials__presentationvideo')).filter(video_count__gt=0)
+
 
 
 class SpeakerFilter(django_filters.FilterSet):
@@ -133,5 +148,27 @@ class EventCategoryFilter(django_filters.FilterSet):
     class Meta:
         model = EventCategory
         fields = ['id', 'title']
+
+
+
+class TagFilter(django_filters.FilterSet):
+    published = django_filters.BooleanFilter(field_name='events__published')
+    tag = django_filters.CharFilter(field_name='tag')
+    summit_id = django_filters.NumberFilter(method='has_events_from_summit_filter')
+    search = django_filters.CharFilter(method='search_filter')
+
+    def has_events_from_summit_filter(self, queryset, name, value):
+        return queryset.filter(events__summit__id=value).distinct()
+
+    def search_filter(self, queryset, name, value):
+        queryset = queryset.filter(
+            models.Q(tag__icontains=value)
+        )
+
+        return queryset
+
+    class Meta:
+        model = Tag
+        fields = ['id', 'tag']
 
 
