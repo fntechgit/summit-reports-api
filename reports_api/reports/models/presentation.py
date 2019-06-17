@@ -12,7 +12,7 @@
 """
 
 from django.db import models
-from .speaker import Speaker
+from .speaker import Speaker, Member
 from .summit_event import SummitEvent
 
 
@@ -21,12 +21,17 @@ class Presentation(SummitEvent):
     status = models.TextField(db_column='Status')
     to_record = models.BooleanField(db_column='ToRecord')
     attending_media = models.BooleanField(db_column='AttendingMedia')
+    expect_to_learn = models.TextField(db_column='AttendeesExpectedLearnt')
 
     summitevent_ptr = models.OneToOneField(
         SummitEvent, on_delete=models.CASCADE, parent_link=True, db_column='ID')
 
     speakers = models.ManyToManyField(Speaker, related_name='presentations', through='PresentationSpeakers',
                                        through_fields=('presentation_id', 'speaker_id'))
+
+    moderator = models.OneToOneField(Speaker, on_delete=models.CASCADE, db_column='ModeratorID')
+
+    creator = models.OneToOneField(Member, on_delete=models.CASCADE, db_column='CreatorID')
 
 
     def __str__(self):

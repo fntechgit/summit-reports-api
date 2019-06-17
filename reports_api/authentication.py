@@ -25,7 +25,7 @@ class TokenValidationMiddleware(object):
     def __call__(self, request):
 
         # skip auth
-        return self.get_response(request)
+        # return self.get_response(request)
 
         if not 'access_token' in request.GET :
             return HttpResponseForbidden()

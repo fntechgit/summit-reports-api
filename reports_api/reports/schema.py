@@ -11,7 +11,7 @@
  * limitations under the License.
 """
 
-from graphene import Int, ObjectType, Float, String
+from graphene import Int, ObjectType, Float, String, List, AbstractType
 from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
 from graphene_django.fields import DjangoListField
 from django.db import models
@@ -145,7 +145,7 @@ class TagNode(DjangoObjectType):
     event_count = Int(summitId=Int())
 
     def resolve_event_count(self, info, summitId):
-        return self.events.filter(summit__id=summitId).count()
+        return self.events.filter(summit__id=summitId, published=True).count()
 
     class Meta:
         model = Tag
@@ -155,6 +155,7 @@ class TagNode(DjangoObjectType):
 class PresentationNode(DjangoObjectType):
     speaker_count = Int()
     speaker_names = String()
+    speaker_emails = String()
     attendee_count = Int()
     rsvp_count = Int()
     feedback_count = Int()
@@ -169,6 +170,11 @@ class PresentationNode(DjangoObjectType):
         speakers = list(self.speakers.values())
         speaker_names = ', '.join(str(x.get("first_name") + " " + x.get("last_name")) for x in speakers)
         return speaker_names
+
+    def resolve_speaker_emails(self, info):
+        speakers = list(self.speakers.values("member__email"))
+        speaker_emails = ', '.join(x.get("member__email") for x in speakers)
+        return speaker_emails
 
     def resolve_attendee_count(self, info):
         return self.attendees.count()
@@ -199,14 +205,24 @@ class PresentationNode(DjangoObjectType):
 class SpeakerNode(DjangoObjectType):
     presentations = DjangoListField(PresentationNode, summitId=Int())
     presentation_count = Int()
+    presentation_titles = String(summitId=Int())
     feedback_count = Int(summitId=Int())
     feedback_avg = Float(summitId=Int())
+    full_name = String()
+    emails = String()
+    current_job_title = String()
+    current_company = String()
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
 
     def resolve_presentation_count(self, info):
         return self.presentations.count()
+
+    def resolve_presentation_titles(self, info, summitId=0):
+        presentations = list(self.presentations.filter(summit_id=summitId).values("title"))
+        presentation_titles = ' || '.join(x.get("title") for x in presentations)
+        return presentation_titles
 
     def resolve_feedback_count(self, info, summitId=0):
         queryset = EventFeedback.objects.filter(event__presentation__speakers__id=self.id)
@@ -226,6 +242,34 @@ class SpeakerNode(DjangoObjectType):
             return round(avgRate, 2)
         else :
             return 0
+
+    def resolve_full_name(self, info):
+        return str(self.first_name + " " + self.last_name)
+
+    def resolve_emails(self, info):
+        emails = [self.member.email]
+        if (hasattr(self, 'registration')):
+            emails.append(self.registration.email)
+
+        return ', '.join(x for x in emails)
+
+    def resolve_current_job_title(self, info):
+        job_title = '';
+        if (hasattr(self.member, 'affiliations')):
+            current_affiliation = self.member.affiliations.filter(current=True).first()
+            if (current_affiliation):
+                job_title = current_affiliation.job_title
+
+        return job_title
+
+    def resolve_current_company(self, info):
+        company = '';
+        if (hasattr(self.member, 'affiliations')):
+            current_affiliation = self.member.affiliations.filter(current=True).first()
+            if (current_affiliation and hasattr(current_affiliation, 'organization')):
+                company = current_affiliation.organization.name
+
+        return company
 
     class Meta(object):
         model = Speaker
@@ -250,6 +294,27 @@ class EventCategoryNode(DjangoObjectType):
 
 
 # ---------------------------------------------------------------------------------
+
+class CustomDictionary(ObjectType):
+    key = String()
+    value = String()
+
+class PresentationListType(DjangoListObjectType):
+    category_stats = List(CustomDictionary)
+
+    def resolve_category_stats(self, info):
+        results = []
+        cat_grouped = self.results.distinct().values('category__title').annotate(ev_count=models.Count('id', distinct=True))
+        for cat in cat_grouped:
+            dict = CustomDictionary(cat.get('category__title'), cat.get('ev_count'))
+            results.append(dict)
+
+        return results
+
+    class Meta:
+        model = Presentation
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+        filter_fields = ["id","title"]
 
 
 class EventFeedbackListType(DjangoListObjectType):
@@ -313,7 +378,7 @@ class EventCategoryModelType(DjangoSerializerType):
 
 
 class Query(ObjectType):
-    presentations = PresentationModelType.ListField(filterset_class=PresentationFilter)
+    presentations = DjangoListObjectField(PresentationListType, filterset_class=PresentationFilter)
     presentation = DjangoObjectField(PresentationNode)
     speakers = SpeakerModelType.ListField(filterset_class=SpeakerFilter)
     rsvps = RsvpModelType.ListField(filterset_class=RsvpFilter)
@@ -322,6 +387,7 @@ class Query(ObjectType):
     categories = EventCategoryModelType.ListField(filterset_class=EventCategoryFilter)
     tags = DjangoListObjectField(TagListType, filterset_class=TagFilter)
     #feedbacks = EventFeedbackModelType.ListField(filterset_class=EventFeedbackFilter)
+
 
 
 
