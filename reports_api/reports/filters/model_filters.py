@@ -70,6 +70,7 @@ class PresentationFilter(django_filters.FilterSet):
 
 class SpeakerFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(method='has_events_from_summit_filter')
+    published_in = django_filters.NumberFilter(method='has_published_events_from_summit_filter')
     search = django_filters.CharFilter(method='search_filter')
     has_feedback_for_summit = django_filters.NumberFilter(method='feedback_filter')
     track = django_filters.BaseInFilter(field_name='presentations__category__id')
@@ -84,6 +85,9 @@ class SpeakerFilter(django_filters.FilterSet):
 
     def has_events_from_summit_filter(self, queryset, name, value):
         return queryset.filter(presentations__summit__id=value).distinct()
+
+    def has_published_events_from_summit_filter(self, queryset, name, value):
+        return queryset.filter(presentations__summit__id=value, presentations__published=True).distinct()
 
     def has_events_on_category_filter(self, queryset, name, value):
         return queryset.filter(presentations__category__id=value).distinct()
