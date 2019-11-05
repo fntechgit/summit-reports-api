@@ -16,6 +16,7 @@ from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, D
 from graphene_django.fields import DjangoListField
 from django.db import models
 
+
 from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
@@ -247,27 +248,40 @@ class SpeakerNode(DjangoObjectType):
         return str(self.first_name + " " + self.last_name)
 
     def resolve_emails(self, info):
-        emails = [self.member.email]
-        if (hasattr(self, 'registration')):
+        emails = []
+
+        try:
+            emails.append(self.member.email)
+        except:
+            pass
+
+        try:
             emails.append(self.registration.email)
+        except:
+            pass
 
         return ', '.join(x for x in emails)
 
     def resolve_current_job_title(self, info):
-        job_title = '';
-        if (hasattr(self.member, 'affiliations')):
+        job_title = ''
+
+        try:
             current_affiliation = self.member.affiliations.filter(current=True).first()
             if (current_affiliation):
                 job_title = current_affiliation.job_title
+        except:
+            pass
 
         return job_title
 
     def resolve_current_company(self, info):
         company = '';
-        if (hasattr(self.member, 'affiliations')):
+        try:
             current_affiliation = self.member.affiliations.filter(current=True).first()
-            if (current_affiliation and hasattr(current_affiliation, 'organization')):
+            if (current_affiliation):
                 company = current_affiliation.organization.name
+        except:
+            pass
 
         return company
 
