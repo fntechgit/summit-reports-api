@@ -157,6 +157,7 @@ class PresentationNode(DjangoObjectType):
     speaker_count = Int()
     speaker_names = String()
     speaker_emails = String()
+    speaker_companies = String()
     attendee_count = Int()
     rsvp_count = Int()
     feedback_count = Int()
@@ -176,6 +177,17 @@ class PresentationNode(DjangoObjectType):
         speakers = list(self.speakers.values("member__email"))
         speaker_emails = ', '.join(x.get("member__email") for x in speakers)
         return speaker_emails
+
+    def resolve_speaker_companies(self, info):
+        companies = list(
+            self.speakers
+                .exclude(member__affiliations__isnull=True)
+                .exclude(member__affiliations__current=False)
+                .values("member__affiliations__organization__name")
+        )
+
+        speaker_companies = ', '.join(set(x.get("member__affiliations__organization__name") for x in companies))
+        return speaker_companies
 
     def resolve_attendee_count(self, info):
         return self.attendees.count()
