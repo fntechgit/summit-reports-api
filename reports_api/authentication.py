@@ -27,23 +27,27 @@ class TokenValidationMiddleware(object):
             access_token = TokenValidationMiddleware.get_access_token(request)
             if access_token is None:
                 logging.getLogger('django').warning('missing access token')
-                return HttpResponseForbidden
+                return HttpResponseForbidden("Miissing Access Token")
             # we got an access token on request
             token_info = TokenValidationMiddleware.get_token_info(access_token)
             # now check the scope
             if 'scope' in token_info:
                 current_scope = token_info['scope']
                 required_scope = settings.REQUIRED_SCOPES
-                logging.getLogger('django').debug('current scope {current} required scope {required}'.
-                                                  format(current=current_scope, required=required_scope))
-                # check scopes
+                logging.getLogger('django').debug(
+                    'current scope {current} required scope {required}'
+                        .format(current=current_scope, required=required_scope)
+                )
 
+                # check scopes
                 if len(set.intersection(set(required_scope.split()), set(current_scope.split()))):
                     return self.get_response(request)
+                else:
+                    return HttpResponseForbidden("Missing Scopes on Access Token")
         except:
             logging.getLogger('django').error(sys.exc_info())
 
-        return HttpResponseForbidden
+        return HttpResponseForbidden()
 
     @staticmethod
     def get_access_token(request):
@@ -77,10 +81,12 @@ class TokenValidationMiddleware(object):
 
         if cached_token_info is None:
             try:
-                response = requests.post('{base_url}/{endpoint}'.format(base_url=settings.IDP_BASE_URL ,
+                response = requests.post(
+                    '{base_url}/{endpoint}'.format(
+                        base_url=settings.IDP_BASE_URL ,
                         endpoint=settings.IDP_INTROSPECTION_ENDPOINT
                     ),
-                    auth = (settings.RS_CLIENT_ID, settings.RS_CLIENT_SECRET),
+                    auth=(settings.RS_CLIENT_ID, settings.RS_CLIENT_SECRET),
                     params={'token': access_token},
                     verify=settings.DEBUG
                 )
@@ -90,8 +96,11 @@ class TokenValidationMiddleware(object):
                     cache.set(access_token, cached_token_info, timeout=cached_token_info['expires_in'])
                 else:
                     logging.getLogger('django').warning(
-                        'http code {code} http content {content}'.format(code=response.status_code,
-                                                                         content=response.content))
+                        'http code {code} http content {content}'.format(
+                            code=response.status_code,
+                            content=response.content
+                        )
+                    )
                     raise exceptions.AuthenticationFailed('invalid response')
 
             except requests.exceptions.RequestException as e:
