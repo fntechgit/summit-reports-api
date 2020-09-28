@@ -134,7 +134,7 @@ class RsvpNode(DjangoObjectType):
 class PresentationMaterialNode(DjangoObjectType):
     class Meta:
         model = PresentationMaterial
-        filter_fields = ['id','presentationvideo']
+        filter_fields = ['id', 'presentationvideo']
 
 class PresentationVideoNode(DjangoObjectType):
     class Meta:
@@ -164,6 +164,7 @@ class PresentationNode(DjangoObjectType):
     feedback_avg = Float()
     tag_names = String()
     youtube_id = String()
+    media_uploads = String()
 
     def resolve_speaker_count(self, info):
         return self.speakers.count()
@@ -208,8 +209,16 @@ class PresentationNode(DjangoObjectType):
         return tag_names
 
     def resolve_youtube_id(self, info):
-        video = self.materials.exclude(presentationvideo__isnull=True).first().presentationvideo;
-        return video.youtube_id if video else 'N/A';
+        video = self.materials.exclude(presentationvideo__isnull=True).first();
+        if video and video.presentationvideo:
+            return video.presentationvideo.youtube_id;
+        else:
+            return 'N/A';
+
+    def resolve_media_uploads(self, info):
+        materials = list(self.materials.exclude(mediaupload__isnull=True).values());
+        media_uploads_string = ', '.join(m.mediaupload.get("name") for m in materials)
+        return media_uploads_string;
 
     class Meta:
         model = Presentation
