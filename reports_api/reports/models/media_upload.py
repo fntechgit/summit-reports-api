@@ -17,7 +17,7 @@ from .media_upload_type import MediaUploadType
 
 
 class MediaUpload(PresentationMaterial):
-    name = models.TextField(db_column='FileName')
+    filename = models.TextField(db_column='FileName')
 
     type = models.ForeignKey(
         MediaUploadType, related_name='media_uploads', db_column='SummitMediaUploadTypeID', on_delete=models.CASCADE, null=True)
