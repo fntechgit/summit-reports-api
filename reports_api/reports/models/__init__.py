@@ -33,4 +33,6 @@ from .rsvp.rsvp_answer import RsvpAnswer
 from .sent_email import SentEmail
 from .presentation_material import PresentationMaterial
 from .presentation_video import PresentationVideo
+from .media_upload import MediaUpload
+from .media_upload_type import MediaUploadType
 from .tag import Tag

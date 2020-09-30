@@ -1,6 +1,6 @@
 """
  * Copyright 2019 OpenStack Foundation
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
@@ -20,7 +20,8 @@ from django.db import models
 from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
-    Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag
+    Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag, \
+    MediaUpload, MediaUploadType
 
 from reports_api.reports.filters.model_filters import \
     PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter
@@ -63,39 +64,41 @@ class SpeakerAttendanceNode(DjangoObjectType):
         model = SpeakerAttendance
         filter_fields = ['id', 'summit__id']
 
+
 class SpeakerPromoCodeNode(DjangoObjectType):
     class Meta:
         model = SpeakerPromoCode
         filter_fields = ['id', 'summit__id']
 
-class SummitEventNode(DjangoObjectType):
 
+class SummitEventNode(DjangoObjectType):
     class Meta:
         model = SummitEvent
-        filter_fields = ['id','title', 'summit__id', 'published']
+        filter_fields = ['id', 'title', 'summit__id', 'published']
 
 
 class EventTypeNode(DjangoObjectType):
     class Meta:
         model = EventType
-        filter_fields = ['id','type']
+        filter_fields = ['id', 'type']
 
 
 class EventFeedbackNode(DjangoObjectType):
      class Meta:
         model = EventFeedback
-        filter_fields = ['id','owner__id', 'event__id']
+        filter_fields = ['id', 'owner__id', 'event__id']
 
 
 class LocationNode(DjangoObjectType):
     class Meta:
         model = AbstractLocation
-        filter_fields = ['id','name','venueroom']
+        filter_fields = ['id', 'name', 'venueroom']
+
 
 class VenueRoomNode(DjangoObjectType):
     class Meta:
         model = VenueRoom
-        filter_fields = ['id','name','venue']
+        filter_fields = ['id', 'name', 'venue']
 
 
 class RsvpAnswerNode(DjangoObjectType):
@@ -121,25 +124,41 @@ class RsvpQuestionValueNode(DjangoObjectType):
         model = RsvpQuestionValue
         filter_fields = ['id']
 
+
 class RsvpTemplateNode(DjangoObjectType):
     class Meta:
         model = RsvpTemplate
         filter_fields = ['id', 'title']
+
 
 class RsvpNode(DjangoObjectType):
     class Meta:
         model = Rsvp
         filter_fields = ['id', 'event__id']
 
+
 class PresentationMaterialNode(DjangoObjectType):
     class Meta:
         model = PresentationMaterial
-        filter_fields = ['id','presentationvideo']
+        filter_fields = ['id', 'presentationvideo', 'mediaupload']
+
 
 class PresentationVideoNode(DjangoObjectType):
     class Meta:
         model = PresentationVideo
         filter_fields = ['id']
+
+
+class MediaUploadNode(DjangoObjectType):
+    class Meta:
+        model = MediaUpload
+        filter_fields = ['id']
+
+
+class MediaUploadTypeNode(DjangoObjectType):
+    class Meta:
+        model = MediaUploadType
+        filter_fields = ['id', 'name']
 
 
 class TagNode(DjangoObjectType):
@@ -157,12 +176,15 @@ class PresentationNode(DjangoObjectType):
     speaker_count = Int()
     speaker_names = String()
     speaker_emails = String()
+    speaker_companies = String()
     attendee_count = Int()
     rsvp_count = Int()
     feedback_count = Int()
     feedback_avg = Float()
     tag_names = String()
     youtube_id = String()
+    media_upload_videos = String()
+    media_upload_slides = String()
 
     def resolve_speaker_count(self, info):
         return self.speakers.count()
@@ -176,6 +198,17 @@ class PresentationNode(DjangoObjectType):
         speakers = list(self.speakers.values("member__email"))
         speaker_emails = ', '.join(x.get("member__email") for x in speakers)
         return speaker_emails
+
+    def resolve_speaker_companies(self, info):
+        companies = list(
+            self.speakers
+                .exclude(member__affiliations__isnull=True)
+                .exclude(member__affiliations__current=False)
+                .values("member__affiliations__organization__name")
+        )
+
+        speaker_companies = ', '.join(set(x.get("member__affiliations__organization__name") for x in companies))
+        return speaker_companies
 
     def resolve_attendee_count(self, info):
         return self.attendees.count()
@@ -196,8 +229,29 @@ class PresentationNode(DjangoObjectType):
         return tag_names
 
     def resolve_youtube_id(self, info):
-        video = self.materials.exclude(presentationvideo__isnull=True).first().presentationvideo;
-        return video.youtube_id if video else 'N/A';
+        video = self.materials.exclude(presentationvideo__isnull=True).first()
+        if video and video.presentationvideo:
+            return video.presentationvideo.youtube_id
+        else:
+            return 'N/A'
+
+    def resolve_media_upload_videos(self, info):
+        materials = list(
+            self.materials
+                .exclude(mediaupload__isnull=True)
+                .filter(mediaupload__type__name__icontains="video")
+                .values("mediaupload__filename"))
+        videos = ', '.join(m.get("mediaupload__filename") for m in materials)
+        return videos
+
+    def resolve_media_upload_slides(self, info):
+        materials = list(
+            self.materials
+                .exclude(mediaupload__isnull=True)
+                .filter(mediaupload__type__name__icontains="slide")
+                .values("mediaupload__filename"))
+        slides = ', '.join(m.get("mediaupload__filename") for m in materials)
+        return slides
 
     class Meta:
         model = Presentation
@@ -275,7 +329,7 @@ class SpeakerNode(DjangoObjectType):
         return job_title
 
     def resolve_current_company(self, info):
-        company = '';
+        company = ''
         try:
             current_affiliation = self.member.affiliations.filter(current=True).first()
             if (current_affiliation):

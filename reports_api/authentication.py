@@ -10,11 +10,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 """
-
-
-from django.http import HttpResponseForbidden, HttpResponse
+from rest_framework import exceptions
+from rest_framework.authentication import get_authorization_header
+from django.http import HttpResponseForbidden
 from django.conf import settings
-import requests, logging, time
+import requests, logging, sys
 from django.core.cache import cache
 
 
@@ -23,44 +23,94 @@ class TokenValidationMiddleware(object):
         self.get_response = get_response
 
     def __call__(self, request):
-
-        # skip auth
         # return self.get_response(request)
+        try:
+            access_token = TokenValidationMiddleware.get_access_token(request)
+            if access_token is None:
+                logging.getLogger('django').warning('missing access token')
+                return HttpResponseForbidden("Miissing Access Token")
+            # we got an access token on request
+            token_info = TokenValidationMiddleware.get_token_info(access_token)
+            # now check the scope
+            if 'scope' in token_info:
+                current_scope = token_info['scope']
+                required_scope = settings.REQUIRED_SCOPES
+                logging.getLogger('django').debug(
+                    'current scope {current} required scope {required}'
+                        .format(current=current_scope, required=required_scope)
+                )
 
-        if not 'access_token' in request.GET :
-            return HttpResponseForbidden()
+                # check scopes
+                if len(set.intersection(set(required_scope.split()), set(current_scope.split()))):
+                    return self.get_response(request)
+                else:
+                    return HttpResponseForbidden("Missing Scopes on Access Token")
+        except:
+            logging.getLogger('django').error(sys.exc_info())
 
-        access_token = request.GET.get('access_token')
+        return HttpResponseForbidden()
 
-        if not access_token:
-            logging.getLogger('django').error('INVALID TOKEN')
-            return HttpResponseForbidden()
+    @staticmethod
+    def get_access_token(request):
+        auth = get_authorization_header(request).split()
 
+        if len(auth) == 1:
+            msg = 'Invalid bearer header. No credentials provided.'
+            raise exceptions.AuthenticationFailed(msg)
+        elif len(auth) > 2:
+            msg = 'Invalid bearer header. Token string should not contain spaces.'
+            raise exceptions.AuthenticationFailed(msg)
+
+        if auth and auth[0].lower() == b'bearer':
+            return auth[1]
+        elif 'access_token' in request.POST:
+            return request.POST['access_token']
+        elif 'access_token' in request.GET:
+            return request.GET['access_token']
+        else:
+            return None
+
+    @staticmethod
+    def get_token_info(access_token):
+        """
+        Authenticate the request, given the access token.
+        """
+        cached_token_info = None
 
         # try get access_token from DB and check if not expired
-        cache_access_token = cache.get('token')
+        cached_token_info = cache.get(access_token)
 
-        if cache_access_token is not None :
-            return self.get_response(request)
+        if cached_token_info is None:
+            try:
+                response = requests.post(
+                    '{base_url}/{endpoint}'.format(
+                        base_url=settings.IDP_BASE_URL ,
+                        endpoint=settings.IDP_INTROSPECTION_ENDPOINT
+                    ),
+                    auth=(settings.RS_CLIENT_ID, settings.RS_CLIENT_SECRET),
+                    params={'token': access_token},
+                    verify=settings.DEBUG
+                )
 
+                if response.status_code == requests.codes.ok:
+                    cached_token_info = response.json()
+                    cache.set(access_token, cached_token_info, timeout=cached_token_info['expires_in'])
+                else:
+                    logging.getLogger('django').warning(
+                        'http code {code} http content {content}'.format(
+                            code=response.status_code,
+                            content=response.content
+                        )
+                    )
+                    raise exceptions.AuthenticationFailed('invalid response')
 
-        # Token instrospection
-        response = requests.post(
-            settings.IDP_BASE_URL + '/oauth2/token/introspection',
-            auth=(settings.RS_CLIENT_ID,settings.RS_CLIENT_SECRET),
-            params={'token' : access_token}
-        )
+            except requests.exceptions.RequestException as e:
+                logging.getLogger('django').error(e)
+                raise
+            except:
+                logging.getLogger('django').error(sys.exc_info())
+                raise
 
-        if response.status_code == requests.codes.ok :
-            token_info = response.json()
-            # print(token_info)
-            cache.set("token", token_info, timeout=token_info['expires_in'])
-        else :
-            logging.getLogger('django').error('INVALID TOKEN')
-            return HttpResponseForbidden()
-
-
-        return self.get_response(request)
-
+        return cached_token_info
 
 
