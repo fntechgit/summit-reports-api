@@ -195,19 +195,13 @@ class PresentationNode(DjangoObjectType):
         return speaker_names
 
     def resolve_speaker_emails(self, info):
-        speakers = list(self.speakers.values("member__email"))
-        speaker_emails = ', '.join(x.get("member__email") for x in speakers)
+        speakers = list(self.speakers.exclude(member__email__isnull=True).values("first_name", "last_name", "member__email"))
+        speaker_emails = ', '.join(str(x.get("first_name") + " " + x.get("last_name") + " (" + x.get("member__email") + ")") for x in speakers)
         return speaker_emails
 
     def resolve_speaker_companies(self, info):
-        companies = list(
-            self.speakers
-                .exclude(member__affiliations__isnull=True)
-                .exclude(member__affiliations__current=False)
-                .values("member__affiliations__organization__name")
-        )
-
-        speaker_companies = ', '.join(set(x.get("member__affiliations__organization__name") for x in companies))
+        speakers = list(self.speakers.exclude(company__isnull=True).values())
+        speaker_companies = ', '.join(str(x.get("first_name") + " " + x.get("last_name") + " (" + x.get("company") + ")") for x in speakers)
         return speaker_companies
 
     def resolve_attendee_count(self, info):
@@ -318,11 +312,13 @@ class SpeakerNode(DjangoObjectType):
 
     def resolve_current_job_title(self, info):
         job_title = ''
-
         try:
-            current_affiliation = self.member.affiliations.filter(current=True).first()
-            if (current_affiliation):
-                job_title = current_affiliation.job_title
+            if self.title:
+                job_title = self.title
+            else:
+                current_affiliation = self.member.affiliations.filter(current=True).first()
+                if current_affiliation:
+                    job_title = current_affiliation.job_title
         except:
             pass
 
@@ -331,9 +327,12 @@ class SpeakerNode(DjangoObjectType):
     def resolve_current_company(self, info):
         company = ''
         try:
-            current_affiliation = self.member.affiliations.filter(current=True).first()
-            if (current_affiliation):
-                company = current_affiliation.organization.name
+            if self.company:
+                company = self.company
+            else:
+                current_affiliation = self.member.affiliations.filter(current=True).first()
+                if current_affiliation:
+                    company = current_affiliation.organization.name
         except:
             pass
 
