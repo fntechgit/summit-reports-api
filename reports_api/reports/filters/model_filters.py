@@ -1,4 +1,4 @@
-from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag
+from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric
 import django_filters
 from django.db import models
 
@@ -226,5 +226,17 @@ class TagFilter(django_filters.FilterSet):
     class Meta:
         model = Tag
         fields = ['id', 'tag']
+
+
+class MetricFilter(django_filters.FilterSet):
+    summit_id = django_filters.NumberFilter(field_name='summit__id')
+    member_id = django_filters.NumberFilter(field_name='member__id')
+    event_id = django_filters.NumberFilter(field_name='eventmetric__event__id')
+    sponsor_id = django_filters.NumberFilter(field_name='sponsormetric__sponsor__id')
+    company_id = django_filters.NumberFilter(field_name='sponsormetric__sponsor__company__id')
+
+    class Meta:
+        model = Metric
+        fields = ['id', 'ingress_date', 'outgress_date', 'type']
 
 

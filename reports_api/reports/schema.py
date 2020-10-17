@@ -21,10 +21,10 @@ from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag, \
-    MediaUpload, MediaUploadType
+    MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, Company
 
 from reports_api.reports.filters.model_filters import \
-    PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter
+    PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter
 
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer
 
@@ -32,7 +32,7 @@ from .serializers.model_serializers import PresentationSerializer, SpeakerSerial
 class MemberNode(DjangoObjectType):
     class Meta:
         model = Member
-        filter_fields = ['id','email']
+        filter_fields = ['id', 'email']
 
 
 class AffiliationNode(DjangoObjectType):
@@ -50,7 +50,7 @@ class OrganizationNode(DjangoObjectType):
 class SummitNode(DjangoObjectType):
     class Meta:
         model = Summit
-        filter_fields = ['id','title']
+        filter_fields = ['id', 'title']
 
 
 class RegistrationNode(DjangoObjectType):
@@ -170,6 +170,65 @@ class TagNode(DjangoObjectType):
     class Meta:
         model = Tag
         filter_fields = ['id']
+
+
+class MetricNode(DjangoObjectType):
+    member_name = String()
+    event_name = String()
+    sponsor_name = String()
+
+    def resolve_member_name(self, info):
+        return str(self.member.first_name + ' ' + self.member.last_name + ' (' + str(self.member.id) + ')')
+
+    def resolve_event_name(self, info):
+        eventName = ''
+
+        if hasattr(self, 'eventmetric'):
+            eventName = str(self.eventmetric.event.title + ' (' + str(self.eventmetric.event.id) + ')')
+
+        return eventName
+
+    def resolve_sponsor_name(self, info):
+        sponsorName = ''
+
+        if hasattr(self, 'sponsormetric'):
+            sponsorName = str(self.sponsormetric.sponsor.company.name)
+
+        return sponsorName
+
+    class Meta:
+        model = Metric
+        filter_fields = ['id', 'type', 'sponsormetric', 'eventmetric']
+
+
+class SponsorMetricNode(DjangoObjectType):
+    class Meta:
+        model = SponsorMetric
+        filter_fields = ['id', 'sponsor']
+
+
+class EventMetricNode(DjangoObjectType):
+    class Meta:
+        model = EventMetric
+        filter_fields = ['id', 'event']
+
+
+class SponsorNode(DjangoObjectType):
+    class Meta:
+        model = Sponsor
+        filter_fields = ['id', 'company', 'type']
+
+
+class SponsorshipTypeNode(DjangoObjectType):
+    class Meta:
+        model = SponsorshipType
+        filter_fields = ['id']
+
+
+class CompanyNode(DjangoObjectType):
+    class Meta:
+        model = Company
+        filter_fields = ['id', 'name']
 
 
 class PresentationNode(DjangoObjectType):
@@ -405,6 +464,14 @@ class TagListType(DjangoListObjectType):
         filter_fields = ["tag", "events"]
 
 
+class MetricListType(DjangoListObjectType):
+
+    class Meta:
+        model = Metric
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="ingress_date")
+        filter_fields = ["id", "ingress_date", "member_id", "summit_id", "event_id"]
+
+
 
 # ---------------------------------------------------------------------------------
 
@@ -453,6 +520,7 @@ class Query(ObjectType):
     feedbacks = DjangoListObjectField(EventFeedbackListType, filterset_class=EventFeedbackFilter)
     categories = EventCategoryModelType.ListField(filterset_class=EventCategoryFilter)
     tags = DjangoListObjectField(TagListType, filterset_class=TagFilter)
+    metrics = DjangoListObjectField(MetricListType, filterset_class=MetricFilter)
     #feedbacks = EventFeedbackModelType.ListField(filterset_class=EventFeedbackFilter)
 
 

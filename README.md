@@ -23,19 +23,13 @@ After cloning:
   - Example: 
     TAG REPORT 
     {
-      allTags(hasEventsFromSummit:25) {
-        edges {
-          node {
-            id
-            tag
-            events (summit_Id:25, published:true){
-              edges {
-                node {
-                  id
-                }
-              }
-            }
-          }
-        }
-      }
+  reportData: tags(summitId: 31, published: true) {
+    results: results(limit: 25) {
+      id
+      tag
+      eventCount(summitId: 31)
     }
+    totalCount
+  }
+}
+
