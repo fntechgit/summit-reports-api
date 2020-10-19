@@ -233,10 +233,18 @@ class MetricFilter(django_filters.FilterSet):
     member_id = django_filters.NumberFilter(field_name='member__id')
     event_id = django_filters.NumberFilter(field_name='eventmetric__event__id')
     sponsor_id = django_filters.NumberFilter(field_name='sponsormetric__sponsor__id')
-    company_id = django_filters.NumberFilter(field_name='sponsormetric__sponsor__company__id')
+    company_name = django_filters.CharFilter(field_name='sponsormetric__sponsor__company__name')
+    from_date = django_filters.DateTimeFilter(method='from_date_filter')
+    to_date = django_filters.DateTimeFilter(method='to_date_filter')
+
+    def from_date_filter(self, queryset, name, value):
+        return queryset.filter(ingress_date__gte=value)
+
+    def to_date_filter(self, queryset, name, value):
+        return queryset.filter(ingress_date__lte=value)
 
     class Meta:
         model = Metric
-        fields = ['id', 'ingress_date', 'outgress_date', 'type']
+        fields = ['id', 'ingress_date', 'outgress_date', 'type', 'company_name', 'event_id']
 
 
