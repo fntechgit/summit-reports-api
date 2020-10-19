@@ -36,3 +36,9 @@ from .presentation_video import PresentationVideo
 from .media_upload import MediaUpload
 from .media_upload_type import MediaUploadType
 from .tag import Tag
+from .sponsor import Sponsor
+from .sponsorship_type import SponsorshipType
+from .company import Company
+from .metric import Metric
+from .event_metric import EventMetric
+from .sponsor_metric import SponsorMetric
