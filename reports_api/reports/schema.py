@@ -249,18 +249,29 @@ class PresentationNode(DjangoObjectType):
         return self.speakers.count()
 
     def resolve_speaker_names(self, info):
-        speakers = list(self.speakers.values())
-        speaker_names = ', '.join(str(x.get("first_name") + " " + x.get("last_name")) for x in speakers)
+        speaker_names = ', '.join(x.full_name() for x in self.speakers.all())
+
+        if hasattr(self, 'moderator'):
+            speaker_names = speaker_names + ', ' + self.moderator.full_name()
+
         return speaker_names
 
     def resolve_speaker_emails(self, info):
-        speakers = list(self.speakers.exclude(member__email__isnull=True).values("first_name", "last_name", "member__email"))
-        speaker_emails = ', '.join(str(x.get("first_name") + " " + x.get("last_name") + " (" + x.get("member__email") + ")") for x in speakers)
+        speakers = self.speakers.exclude(member__email__isnull=True).all()
+        speaker_emails = ', '.join(str(x.full_name() + ' (' + x.email() + ')') for x in speakers)
+
+        if hasattr(self, 'moderator'):
+            speaker_emails = speaker_emails + ', ' + self.moderator.full_name() + ' (' + self.moderator.email() + ')'
+
         return speaker_emails
 
     def resolve_speaker_companies(self, info):
-        speakers = list(self.speakers.exclude(company__isnull=True).values())
-        speaker_companies = ', '.join(str(x.get("first_name") + " " + x.get("last_name") + " (" + x.get("company") + ")") for x in speakers)
+        speakers = self.speakers.exclude(company__isnull=True).all()
+        speaker_companies = ', '.join(str(x.full_name + " (" + x.company + ")") for x in speakers)
+
+        if hasattr(self, 'moderator'):
+            speaker_companies = speaker_companies + ', ' + self.moderator.full_name() + ' (' + self.moderator.company + ')'
+
         return speaker_companies
 
     def resolve_attendee_count(self, info):
@@ -352,7 +363,7 @@ class SpeakerNode(DjangoObjectType):
             return 0
 
     def resolve_full_name(self, info):
-        return str(self.first_name + " " + self.last_name)
+        return self.full_name()
 
     def resolve_emails(self, info):
         emails = []
