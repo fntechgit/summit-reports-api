@@ -34,6 +34,19 @@ class Speaker(models.Model):
     def __str__(self):
         return self.id
 
+    def full_name(self):
+        if self.first_name or self.last_name:
+            return str(self.first_name + ' ' + self.last_name)
+        else:
+            if self.member is not None:
+                return str(self.member.first_name + ' ' + self.member.last_name)
+
+        return str(self.id)
+
+    def email(self):
+        return self.member.email if self.member is not None else ''
+
+
     class Meta:
         app_label = 'reports'
         db_table = 'PresentationSpeaker'
