@@ -24,6 +24,7 @@ class TokenValidationMiddleware(object):
 
     def __call__(self, request):
         # return self.get_response(request)
+        
         try:
             access_token = TokenValidationMiddleware.get_access_token(request)
             if access_token is None:

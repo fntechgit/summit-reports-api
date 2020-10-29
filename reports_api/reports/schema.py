@@ -48,9 +48,27 @@ class OrganizationNode(DjangoObjectType):
 
 
 class SummitNode(DjangoObjectType):
+    unique_metrics = DjangoListField(String, metricType=String(), fromDate=String(), toDate=String())
+
+    def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate=""):
+        metrics = self.metrics
+
+        if metricType :
+            metrics = metrics.filter(type=metricType)
+
+        if fromDate:
+            metrics = metrics.filter(ingress_date__gte=fromDate)
+
+        if toDate:
+            metrics = metrics.filter(ingress_date__lte=toDate)
+
+        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name", "member__id").distinct()
+
+        return [str(m.get("member__first_name")+" "+m.get("member__last_name")+" ("+str(m.get("member__id"))+")") for m in distinct_members]
+
     class Meta:
         model = Summit
-        filter_fields = ['id', 'title']
+        filter_fields = ['id', 'title', 'metrics']
 
 
 class RegistrationNode(DjangoObjectType):
@@ -72,6 +90,24 @@ class SpeakerPromoCodeNode(DjangoObjectType):
 
 
 class SummitEventNode(DjangoObjectType):
+    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String())
+
+    def resolve_unique_metrics(self, info, fromDate="", toDate=""):
+        metrics = self.metrics
+
+        if fromDate:
+            metrics = metrics.filter(ingress_date__gte=fromDate)
+
+        if toDate:
+            metrics = metrics.filter(ingress_date__lte=toDate)
+
+        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
+                                                                         "member__id").distinct()
+
+        return [
+            str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
+            for m in distinct_members]
+
     class Meta:
         model = SummitEvent
         filter_fields = ['id', 'title', 'summit__id', 'published']
@@ -214,6 +250,28 @@ class EventMetricNode(DjangoObjectType):
 
 
 class SponsorNode(DjangoObjectType):
+    company_name = String()
+    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String())
+
+    def resolve_company_name(self, info):
+        return self.company.name
+
+    def resolve_unique_metrics(self, info, fromDate="", toDate=""):
+        metrics = self.metrics
+
+        if fromDate:
+            metrics = metrics.filter(ingress_date__gte=fromDate)
+
+        if toDate:
+            metrics = metrics.filter(ingress_date__lte=toDate)
+
+        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
+                                                                         "member__id").distinct()
+
+        return [
+            str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
+            for m in distinct_members]
+
     class Meta:
         model = Sponsor
         filter_fields = ['id', 'company', 'type']
@@ -479,9 +537,8 @@ class MetricListType(DjangoListObjectType):
 
     class Meta:
         model = Metric
-        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="ingress_date")
+        pagination = LimitOffsetGraphqlPagination(default_limit=100, ordering="ingress_date")
         filter_fields = ["id", "ingress_date", "member_id", "summit_id", "event_id"]
-
 
 
 # ---------------------------------------------------------------------------------
@@ -532,8 +589,5 @@ class Query(ObjectType):
     categories = EventCategoryModelType.ListField(filterset_class=EventCategoryFilter)
     tags = DjangoListObjectField(TagListType, filterset_class=TagFilter)
     metrics = DjangoListObjectField(MetricListType, filterset_class=MetricFilter)
+    summits = DjangoObjectField(SummitNode)
     #feedbacks = EventFeedbackModelType.ListField(filterset_class=EventFeedbackFilter)
-
-
-
-
