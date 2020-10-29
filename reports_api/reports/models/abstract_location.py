@@ -12,6 +12,7 @@
 """
 
 from django.db import models
+from .summit import Summit
 
 
 class AbstractLocation(models.Model):
@@ -19,6 +20,9 @@ class AbstractLocation(models.Model):
     name = models.TextField(db_column='Name')
     description = models.TextField(db_column='Description')
     type = models.TextField(db_column='LocationType')
+
+    summit = models.ForeignKey(
+        Summit, related_name='rooms', db_column='SummitID', on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return self.id
