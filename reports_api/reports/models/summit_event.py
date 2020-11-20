@@ -30,6 +30,9 @@ class SummitEvent(models.Model):
     published = models.BooleanField(db_column='Published')
     published_data = models.DateTimeField(db_column='PublishedDate')
     head_count = models.IntegerField(db_column='HeadCount')
+    streaming_url = models.TextField(db_column='StreamingUrl', null=True)
+    etherpad_link = models.TextField(db_column='EtherpadLink', null=True)
+    meeting_url = models.TextField(db_column='MeetingUrl', null=True)
 
     summit = models.ForeignKey(
         Summit, related_name='events', db_column='SummitID', on_delete=models.CASCADE, null=True)

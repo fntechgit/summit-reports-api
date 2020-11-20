@@ -288,6 +288,11 @@ class CompanyNode(DjangoObjectType):
         model = Company
         filter_fields = ['id', 'name']
 
+def dump(obj):
+   for attr in dir(obj):
+       if hasattr( obj, attr ):
+           print( "obj.%s = %s" % (attr, getattr(obj, attr)))
+
 
 class PresentationNode(DjangoObjectType):
     speaker_count = Int()
@@ -309,7 +314,7 @@ class PresentationNode(DjangoObjectType):
     def resolve_speaker_names(self, info):
         speaker_names = ', '.join(x.full_name() for x in self.speakers.all())
 
-        if hasattr(self, 'moderator'):
+        if self.has_moderator() and self.moderator is not None:
             speaker_names = speaker_names + ', ' + self.moderator.full_name()
 
         return speaker_names
