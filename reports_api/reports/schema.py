@@ -307,6 +307,8 @@ class PresentationNode(DjangoObjectType):
     youtube_id = String()
     media_upload_videos = String()
     media_upload_slides = String()
+    unique_metrics = DjangoListField(String)
+    unique_metric_count = Int()
 
     def resolve_speaker_count(self, info):
         return self.speakers.count()
@@ -379,6 +381,21 @@ class PresentationNode(DjangoObjectType):
                 .values("mediaupload__filename"))
         slides = ', '.join(m.get("mediaupload__filename") for m in materials)
         return slides
+
+    def resolve_unique_metrics(self, info):
+        metrics = self.metrics.filter(type="EVENT", event__id=self.id)
+
+        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
+                                                                         "member__id").distinct()
+        return [
+            str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
+            for m in distinct_members]
+
+    def resolve_unique_metric_count(self, info):
+        metrics = self.metrics.filter(type="EVENT", event__id=self.id)
+
+        distinct_members = metrics.values("member__id").distinct()
+        return distinct_members.count()
 
     class Meta:
         model = Presentation
