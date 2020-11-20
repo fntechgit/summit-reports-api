@@ -29,13 +29,24 @@ class Presentation(SummitEvent):
     speakers = models.ManyToManyField(Speaker, related_name='presentations', through='PresentationSpeakers',
                                        through_fields=('presentation_id', 'speaker_id'))
 
-    moderator = models.OneToOneField(Speaker, on_delete=models.CASCADE, db_column='ModeratorID')
+    moderator = models.ForeignKey(
+        Speaker, related_name='events', db_column='ModeratorID', on_delete=models.CASCADE, null=True)
 
-    creator = models.OneToOneField(Member, on_delete=models.CASCADE, db_column='CreatorID')
+    creator = models.ForeignKey(
+        Member, related_name='events', db_column='CreatorID', on_delete=models.CASCADE, null=True)
 
 
     def __str__(self):
         return self.id
+
+    def has_moderator(self):
+        try:
+            moderator = self.moderator
+        except:
+            return False
+        return True
+
+
 
     class Meta:
         app_label = 'reports'

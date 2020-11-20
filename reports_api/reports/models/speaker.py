@@ -38,7 +38,7 @@ class Speaker(models.Model):
         if self.first_name or self.last_name:
             return str(self.first_name + ' ' + self.last_name)
         else:
-            if self.member is not None:
+            if hasattr(self, 'member'):
                 return str(self.member.first_name + ' ' + self.member.last_name)
 
         return str(self.id)

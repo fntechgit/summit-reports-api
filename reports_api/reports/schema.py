@@ -288,6 +288,11 @@ class CompanyNode(DjangoObjectType):
         model = Company
         filter_fields = ['id', 'name']
 
+def dump(obj):
+   for attr in dir(obj):
+       if hasattr( obj, attr ):
+           print( "obj.%s = %s" % (attr, getattr(obj, attr)))
+
 
 class PresentationNode(DjangoObjectType):
     speaker_count = Int()
@@ -302,6 +307,8 @@ class PresentationNode(DjangoObjectType):
     youtube_id = String()
     media_upload_videos = String()
     media_upload_slides = String()
+    unique_metrics = DjangoListField(String)
+    unique_metric_count = Int()
 
     def resolve_speaker_count(self, info):
         return self.speakers.count()
@@ -309,7 +316,7 @@ class PresentationNode(DjangoObjectType):
     def resolve_speaker_names(self, info):
         speaker_names = ', '.join(x.full_name() for x in self.speakers.all())
 
-        if hasattr(self, 'moderator'):
+        if self.has_moderator() and self.moderator is not None:
             speaker_names = speaker_names + ', ' + self.moderator.full_name()
 
         return speaker_names
@@ -374,6 +381,21 @@ class PresentationNode(DjangoObjectType):
                 .values("mediaupload__filename"))
         slides = ', '.join(m.get("mediaupload__filename") for m in materials)
         return slides
+
+    def resolve_unique_metrics(self, info):
+        metrics = self.metrics.filter(type="EVENT", event__id=self.id)
+
+        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
+                                                                         "member__id").distinct()
+        return [
+            str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
+            for m in distinct_members]
+
+    def resolve_unique_metric_count(self, info):
+        metrics = self.metrics.filter(type="EVENT", event__id=self.id)
+
+        distinct_members = metrics.values("member__id").distinct()
+        return distinct_members.count()
 
     class Meta:
         model = Presentation
