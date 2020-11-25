@@ -237,6 +237,7 @@ class MetricFilter(django_filters.FilterSet):
     company_name = django_filters.CharFilter(field_name='sponsormetric__sponsor__company__name')
     from_date = django_filters.DateTimeFilter(method='from_date_filter')
     to_date = django_filters.DateTimeFilter(method='to_date_filter')
+    search = django_filters.CharFilter(method='search_filter')
 
     def from_date_filter(self, queryset, name, value):
         return queryset.filter(ingress_date__gte=value)
@@ -244,8 +245,14 @@ class MetricFilter(django_filters.FilterSet):
     def to_date_filter(self, queryset, name, value):
         return queryset.filter(ingress_date__lte=value)
 
+    def search_filter(self, queryset, name, value):
+        queryset = queryset.filter(
+            models.Q(member__email__icontains=value) |
+            models.Q(member__last_name__icontains=value)
+        )
+
+        return queryset
+
     class Meta:
         model = Metric
         fields = ['id', 'ingress_date', 'outgress_date', 'type', 'company_name', 'event_id']
-
-

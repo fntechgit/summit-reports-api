@@ -19,9 +19,10 @@ from .member import Member
 class Metric(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)
     type = models.TextField(db_column='Type')
-    ip = models.TextField(db_column='Ip')
-    origin = models.TextField(db_column='Origin')
-    browser = models.TextField(db_column='Browser')
+    ip = models.TextField(db_column='Ip', null=True)
+    origin = models.TextField(db_column='Origin', null=True)
+    location = models.TextField(db_column='Location', null=True)
+    browser = models.TextField(db_column='Browser', null=True)
     ingress_date = models.DateTimeField(db_column='IngressDate')
     outgress_date = models.DateTimeField(db_column='OutgressDate')
 

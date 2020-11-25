@@ -29,6 +29,28 @@ from reports_api.reports.filters.model_filters import \
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer
 
 
+def getUniqueMetrics(self, metricType, fromDate, toDate, search) :
+    metrics = self.metrics
+
+    if metricType:
+        metrics = metrics.filter(type=metricType)
+
+    if fromDate:
+        metrics = metrics.filter(ingress_date__gte=fromDate)
+
+    if toDate:
+        metrics = metrics.filter(ingress_date__lte=toDate)
+
+    if search:
+        metrics = metrics.filter(member__email__icontains=search)
+
+    distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
+                                                                     "member__id").distinct()
+
+    return [str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
+            for m in distinct_members]
+
+
 class MemberNode(DjangoObjectType):
     class Meta:
         model = Member
@@ -48,23 +70,10 @@ class OrganizationNode(DjangoObjectType):
 
 
 class SummitNode(DjangoObjectType):
-    unique_metrics = DjangoListField(String, metricType=String(), fromDate=String(), toDate=String())
+    unique_metrics = DjangoListField(String, metricType=String(), fromDate=String(), toDate=String(), search=String())
 
-    def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate=""):
-        metrics = self.metrics
-
-        if metricType :
-            metrics = metrics.filter(type=metricType)
-
-        if fromDate:
-            metrics = metrics.filter(ingress_date__gte=fromDate)
-
-        if toDate:
-            metrics = metrics.filter(ingress_date__lte=toDate)
-
-        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name", "member__id").distinct()
-
-        return [str(m.get("member__first_name")+" "+m.get("member__last_name")+" ("+str(m.get("member__id"))+")") for m in distinct_members]
+    def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate="", search=""):
+        return getUniqueMetrics(self, metricType, fromDate, toDate, search)
 
     class Meta:
         model = Summit
@@ -90,23 +99,10 @@ class SpeakerPromoCodeNode(DjangoObjectType):
 
 
 class SummitEventNode(DjangoObjectType):
-    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String())
+    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String(), search=String())
 
-    def resolve_unique_metrics(self, info, fromDate="", toDate=""):
-        metrics = self.metrics
-
-        if fromDate:
-            metrics = metrics.filter(ingress_date__gte=fromDate)
-
-        if toDate:
-            metrics = metrics.filter(ingress_date__lte=toDate)
-
-        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
-                                                                         "member__id").distinct()
-
-        return [
-            str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
-            for m in distinct_members]
+    def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
+        return getUniqueMetrics(self, None, fromDate, toDate, search)
 
     class Meta:
         model = SummitEvent
@@ -251,26 +247,13 @@ class EventMetricNode(DjangoObjectType):
 
 class SponsorNode(DjangoObjectType):
     company_name = String()
-    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String())
+    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String(), search=String())
+
+    def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
+        return getUniqueMetrics(self, None, fromDate, toDate, search)
 
     def resolve_company_name(self, info):
         return self.company.name
-
-    def resolve_unique_metrics(self, info, fromDate="", toDate=""):
-        metrics = self.metrics
-
-        if fromDate:
-            metrics = metrics.filter(ingress_date__gte=fromDate)
-
-        if toDate:
-            metrics = metrics.filter(ingress_date__lte=toDate)
-
-        distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
-                                                                         "member__id").distinct()
-
-        return [
-            str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
-            for m in distinct_members]
 
     class Meta:
         model = Sponsor
@@ -305,6 +288,7 @@ class PresentationNode(DjangoObjectType):
     feedback_avg = Float()
     tag_names = String()
     youtube_id = String()
+    all_media_uploads = String()
     media_upload_videos = String()
     media_upload_slides = String()
     unique_metrics = DjangoListField(String)
@@ -363,6 +347,15 @@ class PresentationNode(DjangoObjectType):
             return video.presentationvideo.youtube_id
         else:
             return 'N/A'
+
+    def resolve_all_media_uploads(self, info):
+        materials = list(
+            self.materials
+                .exclude(mediaupload__isnull=True)
+                .values("mediaupload__filename", "mediaupload__type__name"))
+        files = ', '.join(m.get("mediaupload__filename") + " (" + m.get("mediaupload__type__name") + ")" for m in materials)
+
+        return files
 
     def resolve_media_upload_videos(self, info):
         materials = list(
