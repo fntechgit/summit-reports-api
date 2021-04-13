@@ -28,7 +28,8 @@ class SummitEvent(models.Model):
     start_date = models.DateTimeField(db_column='StartDate', null=True)
     end_date = models.DateTimeField(db_column='EndDate', null=True)
     published = models.BooleanField(db_column='Published')
-    published_data = models.DateTimeField(db_column='PublishedDate')
+    published_date = models.DateTimeField(db_column='PublishedDate')
+    level = models.TextField(db_column='Level')
     head_count = models.IntegerField(db_column='HeadCount')
     streaming_url = models.TextField(db_column='StreamingUrl', null=True)
     etherpad_link = models.TextField(db_column='EtherpadLink', null=True)
@@ -49,8 +50,11 @@ class SummitEvent(models.Model):
     rsvp_template = models.ForeignKey(
         RsvpTemplate, related_name='events', db_column='RSVPTemplateID', on_delete=models.CASCADE, null=True)
 
-    tags = models.ManyToManyField(Tag, related_name='events', through='SummitEventTags',
-                                      through_fields=('event_id', 'tag_id'))
+    tags = models.ManyToManyField(
+        Tag, related_name='events', through='SummitEventTags',through_fields=('event_id', 'tag_id'))
+
+    creator = models.ForeignKey(
+        'Member', related_name='events', db_column='CreatedByID', on_delete=models.CASCADE, null=True)
 
 
     def __str__(self):

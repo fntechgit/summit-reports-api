@@ -13,8 +13,6 @@
 
 from django.db import models
 from .member import Member
-import django_filters
-from django.db.models import Count, Avg, Q, FilteredRelation
 
 
 class Speaker(models.Model):

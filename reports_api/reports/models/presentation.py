@@ -17,7 +17,6 @@ from .summit_event import SummitEvent
 
 
 class Presentation(SummitEvent):
-    level = models.TextField(db_column='Level')
     status = models.TextField(db_column='Status')
     to_record = models.BooleanField(db_column='ToRecord')
     attending_media = models.BooleanField(db_column='AttendingMedia')
@@ -31,9 +30,6 @@ class Presentation(SummitEvent):
 
     moderator = models.ForeignKey(
         Speaker, related_name='events', db_column='ModeratorID', on_delete=models.CASCADE, null=True)
-
-    creator = models.ForeignKey(
-        Member, related_name='events', db_column='CreatorID', on_delete=models.CASCADE, null=True)
 
 
     def __str__(self):
