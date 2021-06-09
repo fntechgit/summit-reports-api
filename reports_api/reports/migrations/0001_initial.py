@@ -432,6 +432,7 @@ class Migration(migrations.Migration):
             name='PresentationVideo',
             fields=[
                 ('youtube_id', models.TextField(db_column='YouTubeID')),
+                ('external_url', models.TextField(db_column='ExternalUrl')),
                 ('views', models.IntegerField(db_column='Views')),
                 ('presentationmaterial_ptr', models.OneToOneField(db_column='ID', on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='reports.PresentationMaterial')),
             ],

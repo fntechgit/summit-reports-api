@@ -17,6 +17,7 @@ from .presentation_material import PresentationMaterial
 
 class PresentationVideo(PresentationMaterial):
     youtube_id = models.TextField(db_column='YouTubeID')
+    external_url = models.TextField(db_column='ExternalUrl')
     views = models.IntegerField(db_column='Views')
 
     presentationmaterial_ptr = models.OneToOneField(

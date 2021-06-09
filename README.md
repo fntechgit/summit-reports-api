@@ -5,7 +5,7 @@ After cloning:
 
 - create virtual environment :
   * on project root run : 
-      - virtualenv venv
+      - python3.6 -m venv venv
       - source venv/bin/activate
       
 - install requirements : 

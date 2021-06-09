@@ -288,6 +288,7 @@ class PresentationNode(DjangoObjectType):
     feedback_avg = Float()
     tag_names = String()
     youtube_id = String()
+    external_url = String()
     all_media_uploads = String()
     media_upload_videos = String()
     media_upload_slides = String()
@@ -345,6 +346,13 @@ class PresentationNode(DjangoObjectType):
         video = self.materials.exclude(presentationvideo__isnull=True).first()
         if video and video.presentationvideo:
             return video.presentationvideo.youtube_id
+        else:
+            return 'N/A'
+
+    def resolve_external_url(self, info):
+        video = self.materials.exclude(presentationvideo__isnull=True).first()
+        if video and video.presentationvideo:
+            return video.presentationvideo.external_url
         else:
             return 'N/A'
 
