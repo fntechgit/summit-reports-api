@@ -36,14 +36,19 @@ class Speaker(models.Model):
         if self.first_name or self.last_name:
             return str(self.first_name + ' ' + self.last_name)
         else:
-            if hasattr(self, 'member'):
+            if hasattr(self, 'member') and self.member is not None:
                 return str(self.member.first_name + ' ' + self.member.last_name)
 
         return str(self.id)
 
     def email(self):
-        return self.member.email if self.member is not None else ''
-
+        if hasattr(self, 'member') and self.member is not None:
+            return self.member.email
+        else:
+            if hasattr(self, 'registration') and self.registration is not None:
+                return self.registration.email
+            else:
+                return ''
 
     class Meta:
         app_label = 'reports'
