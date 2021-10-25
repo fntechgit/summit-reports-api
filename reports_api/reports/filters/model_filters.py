@@ -31,8 +31,6 @@ class SummitEventFilter(django_filters.FilterSet):
         queryset = queryset.filter(
             models.Q(title__icontains=value) |
             models.Q(category__title__icontains=value) |
-            models.Q(submitter__last_name=value) |
-            models.Q(submitter__email=value) |
             models.Q(presentation__speakers__last_name=value)
         )
 
