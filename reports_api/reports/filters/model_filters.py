@@ -19,6 +19,30 @@ class SubQueryAvg(models.Subquery):
         self.queryset.query.set_group_by()  # values() adds a GROUP BY we don't want here
 
 
+class SummitEventFilter(django_filters.FilterSet):
+    class_name = django_filters.CharFilter(field_name='class_name')
+    search = django_filters.CharFilter(method='search_filter')
+    track = django_filters.BaseInFilter(field_name='category__id')
+    summit_id = django_filters.NumberFilter(field_name='summit__id')
+    type = django_filters.BaseInFilter(field_name='type__type')
+    type_class = django_filters.CharFilter(field_name='type__class_name')
+
+    def search_filter(self, queryset, name, value):
+        queryset = queryset.filter(
+            models.Q(title__icontains=value) |
+            models.Q(category__title__icontains=value) |
+            models.Q(submitter__last_name=value) |
+            models.Q(submitter__email=value) |
+            models.Q(presentation__speakers__last_name=value)
+        )
+
+        return queryset.distinct()
+
+    class Meta:
+        model = SummitEvent
+        fields = ['id', 'title', 'published', 'start_date', 'end_date']
+
+
 class PresentationFilter(django_filters.FilterSet):
     search = django_filters.CharFilter(method='search_filter')
     summit_id = django_filters.NumberFilter(field_name='summit__id')

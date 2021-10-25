@@ -24,9 +24,9 @@ from reports_api.reports.models import \
     MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, Company
 
 from reports_api.reports.filters.model_filters import \
-    PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter
+    PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter, SummitEventFilter
 
-from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer
+from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer, SummitEventSerializer
 
 
 def getUniqueMetrics(self, metricType, fromDate, toDate, search) :
@@ -96,17 +96,6 @@ class SpeakerPromoCodeNode(DjangoObjectType):
     class Meta:
         model = SpeakerPromoCode
         filter_fields = ['id', 'summit__id']
-
-
-class SummitEventNode(DjangoObjectType):
-    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String(), search=String())
-
-    def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
-        return getUniqueMetrics(self, None, fromDate, toDate, search)
-
-    class Meta:
-        model = SummitEvent
-        filter_fields = ['id', 'title', 'summit__id', 'published']
 
 
 class EventTypeNode(DjangoObjectType):
@@ -277,6 +266,31 @@ def dump(obj):
            print( "obj.%s = %s" % (attr, getattr(obj, attr)))
 
 
+class SummitEventNode(DjangoObjectType):
+    speaker_count = Int()
+    attendee_count = Int()
+    unique_metric_count = Int()
+    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String(), search=String())
+
+    def resolve_speaker_count(self, info):
+        return self.presentation.speakers.count() if hasattr(self, 'presentation') and self.presentation is not None else 0
+
+    def resolve_attendee_count(self, info):
+        return self.presentation.attendees.count() if hasattr(self, 'presentation') and self.presentation is not None else 0
+
+    def resolve_unique_metric_count(self, info):
+        metrics = self.metrics.filter(type="EVENT", event__id=self.id)
+        distinct_members = metrics.values("member__id").distinct()
+        return distinct_members.count()
+
+    def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
+        return getUniqueMetrics(self, None, fromDate, toDate, search)
+
+    class Meta:
+        model = SummitEvent
+        filter_fields = ['id', 'title', 'summit__id', 'published']
+
+
 class PresentationNode(DjangoObjectType):
     speaker_count = Int()
     speaker_names = String()
@@ -394,7 +408,6 @@ class PresentationNode(DjangoObjectType):
 
     def resolve_unique_metric_count(self, info):
         metrics = self.metrics.filter(type="EVENT", event__id=self.id)
-
         distinct_members = metrics.values("member__id").distinct()
         return distinct_members.count()
 
@@ -517,6 +530,13 @@ class CustomDictionary(ObjectType):
     key = String()
     value = String()
 
+class SummitEventListType(DjangoListObjectType):
+
+    class Meta:
+        model = SummitEvent
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+        filter_fields = ["id","title"]
+
 class PresentationListType(DjangoListObjectType):
     category_stats = List(CustomDictionary)
 
@@ -566,9 +586,6 @@ class MetricListType(DjangoListObjectType):
 
 # ---------------------------------------------------------------------------------
 
-
-
-
 class PresentationModelType(DjangoSerializerType):
 
     class Meta:
@@ -603,6 +620,7 @@ class EventCategoryModelType(DjangoSerializerType):
 
 
 class Query(ObjectType):
+    events = DjangoListObjectField(SummitEventListType, filterset_class=SummitEventFilter)
     presentations = DjangoListObjectField(PresentationListType, filterset_class=PresentationFilter)
     presentation = DjangoObjectField(PresentationNode)
     speakers = SpeakerModelType.ListField(filterset_class=SpeakerFilter)

@@ -17,6 +17,7 @@ from django.db import models
 class EventType(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)
     type = models.TextField(db_column='Type')
+    class_name = models.TextField(db_column='ClassName', default='')
 
 
     def __str__(self):
