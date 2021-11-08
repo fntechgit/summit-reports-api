@@ -24,7 +24,7 @@ class SummitEventFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(field_name='summit__id')
     track = django_filters.BaseInFilter(field_name='category__id')
     room = django_filters.BaseInFilter(field_name='location__id')
-    type = django_filters.BaseInFilter(field_name='type__type')
+    type = django_filters.BaseInFilter(field_name='type__id')
     type_class = django_filters.CharFilter(field_name='type__class_name')
     class_name = django_filters.CharFilter(field_name='class_name')
 
