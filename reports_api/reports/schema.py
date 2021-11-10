@@ -12,24 +12,27 @@
 """
 
 from graphene import Int, ObjectType, Float, String, List, AbstractType
-from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
+from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, \
+    DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
 from graphene_django.fields import DjangoListField
 from django.db import models
-
 
 from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
-    Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, PresentationVideo, Tag, \
+    Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, \
+    PresentationVideo, Tag, \
     MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, Company
 
 from reports_api.reports.filters.model_filters import \
-    PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter, SummitEventFilter
+    PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter, \
+    SummitEventFilter
 
-from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer, SummitEventSerializer
+from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, \
+    EventCategorySerializer, SummitEventSerializer
 
 
-def getUniqueMetrics(self, metricType, fromDate, toDate, search) :
+def getUniqueMetrics(self, metricType, fromDate, toDate, search):
     metrics = self.metrics
 
     if metricType:
@@ -47,8 +50,10 @@ def getUniqueMetrics(self, metricType, fromDate, toDate, search) :
     distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
                                                                      "member__id").distinct()
 
-    return [str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
-            for m in distinct_members]
+    return [
+        '{fname} {lname} ({id})'.format(fname=m.get("member__first_name"), lname=m.get("member__last_name"),
+                                        id=m.get("member__id"))
+        for m in distinct_members]
 
 
 class MemberNode(DjangoObjectType):
@@ -60,13 +65,13 @@ class MemberNode(DjangoObjectType):
 class AffiliationNode(DjangoObjectType):
     class Meta:
         model = Affiliation
-        filter_fields = ['id','current','organization']
+        filter_fields = ['id', 'current', 'organization']
 
 
 class OrganizationNode(DjangoObjectType):
     class Meta:
         model = Organization
-        filter_fields = ['id','name']
+        filter_fields = ['id', 'name']
 
 
 class SummitNode(DjangoObjectType):
@@ -105,7 +110,7 @@ class EventTypeNode(DjangoObjectType):
 
 
 class EventFeedbackNode(DjangoObjectType):
-     class Meta:
+    class Meta:
         model = EventFeedback
         filter_fields = ['id', 'owner__id', 'event__id']
 
@@ -260,10 +265,11 @@ class CompanyNode(DjangoObjectType):
         model = Company
         filter_fields = ['id', 'name']
 
+
 def dump(obj):
-   for attr in dir(obj):
-       if hasattr( obj, attr ):
-           print( "obj.%s = %s" % (attr, getattr(obj, attr)))
+    for attr in dir(obj):
+        if hasattr(obj, attr):
+            print("obj.%s = %s" % (attr, getattr(obj, attr)))
 
 
 class SummitEventNode(DjangoObjectType):
@@ -273,10 +279,12 @@ class SummitEventNode(DjangoObjectType):
     unique_metrics = DjangoListField(String, fromDate=String(), toDate=String(), search=String())
 
     def resolve_speaker_count(self, info):
-        return self.presentation.speakers.count() if hasattr(self, 'presentation') and self.presentation is not None else 0
+        return self.presentation.speakers.count() if hasattr(self,
+                                                             'presentation') and self.presentation is not None else 0
 
     def resolve_attendee_count(self, info):
-        return self.presentation.attendees.count() if hasattr(self, 'presentation') and self.presentation is not None else 0
+        return self.presentation.attendees.count() if hasattr(self,
+                                                              'presentation') and self.presentation is not None else 0
 
     def resolve_unique_metric_count(self, info):
         metrics = self.metrics.filter(type="EVENT", event__id=self.id)
@@ -375,7 +383,8 @@ class PresentationNode(DjangoObjectType):
             self.materials
                 .exclude(mediaupload__isnull=True)
                 .values("mediaupload__filename", "mediaupload__type__name"))
-        files = ', '.join(m.get("mediaupload__filename") + " (" + m.get("mediaupload__type__name") + ")" for m in materials)
+        files = ', '.join(
+            m.get("mediaupload__filename") + " (" + m.get("mediaupload__type__name") + ")" for m in materials)
 
         return files
 
@@ -451,9 +460,9 @@ class SpeakerNode(DjangoObjectType):
         result = queryset.aggregate(models.Avg('rate'))
         avgRate = result.get('rate__avg')
 
-        if avgRate :
+        if avgRate:
             return round(avgRate, 2)
-        else :
+        else:
             return 0
 
     def resolve_full_name(self, info):
@@ -506,22 +515,22 @@ class SpeakerNode(DjangoObjectType):
         model = Speaker
 
 
-
 class EventCategoryNode(DjangoObjectType):
     feedback_count = Int()
     feedback_avg = Float()
 
     def resolve_feedback_count(self, info):
-        return EventFeedback.objects.filter(event__summit__id=self.summit.id).filter(event__category__id=self.id).count()
+        return EventFeedback.objects.filter(event__summit__id=self.summit.id).filter(
+            event__category__id=self.id).count()
 
     def resolve_feedback_avg(self, info):
-        rateAvg = EventFeedback.objects.filter(event__summit__id=self.summit.id).filter(event__category__id=self.id).aggregate(models.Avg('rate'))
+        rateAvg = EventFeedback.objects.filter(event__summit__id=self.summit.id).filter(
+            event__category__id=self.id).aggregate(models.Avg('rate'))
         return round(rateAvg.get('rate__avg', 0), 2)
 
     class Meta:
         model = EventCategory
-        filter_fields = ['id','title', 'summit__id']
-
+        filter_fields = ['id', 'title', 'summit__id']
 
 
 # ---------------------------------------------------------------------------------
@@ -530,19 +539,21 @@ class CustomDictionary(ObjectType):
     key = String()
     value = String()
 
-class SummitEventListType(DjangoListObjectType):
 
+class SummitEventListType(DjangoListObjectType):
     class Meta:
         model = SummitEvent
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
-        filter_fields = ["id","title"]
+        filter_fields = ["id", "title"]
+
 
 class PresentationListType(DjangoListObjectType):
     category_stats = List(CustomDictionary)
 
     def resolve_category_stats(self, info):
         results = []
-        cat_grouped = self.results.distinct().values('category__title').annotate(ev_count=models.Count('id', distinct=True))
+        cat_grouped = self.results.distinct().values('category__title').annotate(
+            ev_count=models.Count('id', distinct=True))
         for cat in cat_grouped:
             dict = CustomDictionary(cat.get('category__title'), cat.get('ev_count'))
             results.append(dict)
@@ -552,7 +563,7 @@ class PresentationListType(DjangoListObjectType):
     class Meta:
         model = Presentation
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
-        filter_fields = ["id","title"]
+        filter_fields = ["id", "title"]
 
 
 class EventFeedbackListType(DjangoListObjectType):
@@ -569,7 +580,6 @@ class EventFeedbackListType(DjangoListObjectType):
 
 
 class TagListType(DjangoListObjectType):
-
     class Meta:
         model = Tag
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="tag")
@@ -577,7 +587,6 @@ class TagListType(DjangoListObjectType):
 
 
 class MetricListType(DjangoListObjectType):
-
     class Meta:
         model = Metric
         pagination = LimitOffsetGraphqlPagination(default_limit=100, ordering="ingress_date")
@@ -587,36 +596,30 @@ class MetricListType(DjangoListObjectType):
 # ---------------------------------------------------------------------------------
 
 class PresentationModelType(DjangoSerializerType):
-
     class Meta:
         serializer_class = PresentationSerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
 class SpeakerModelType(DjangoSerializerType):
-
     class Meta(object):
         serializer_class = SpeakerSerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
 class RsvpModelType(DjangoSerializerType):
-
     class Meta(object):
         serializer_class = RsvpSerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
 class EventCategoryModelType(DjangoSerializerType):
-
     class Meta(object):
         serializer_class = EventCategorySerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
-
 # ************************************************************************************
-
 
 
 class Query(ObjectType):
@@ -631,4 +634,4 @@ class Query(ObjectType):
     tags = DjangoListObjectField(TagListType, filterset_class=TagFilter)
     metrics = DjangoListObjectField(MetricListType, filterset_class=MetricFilter)
     summits = DjangoObjectField(SummitNode)
-    #feedbacks = EventFeedbackModelType.ListField(filterset_class=EventFeedbackFilter)
+    # feedbacks = EventFeedbackModelType.ListField(filterset_class=EventFeedbackFilter)
