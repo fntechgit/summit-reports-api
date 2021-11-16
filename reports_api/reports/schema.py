@@ -28,6 +28,10 @@ from reports_api.reports.filters.model_filters import \
 
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, EventCategorySerializer, SummitEventSerializer
 
+def getMemberName(member) :
+    name = str(member.get("member__first_name") + " " + member.get("member__last_name")) if member.get(
+        "member__first_name") else member.get("member__email")
+    return str(name + " (" + str(member.get("member__id")) + ")")
 
 def getUniqueMetrics(self, metricType, fromDate, toDate, search) :
     metrics = self.metrics
@@ -44,11 +48,12 @@ def getUniqueMetrics(self, metricType, fromDate, toDate, search) :
     if search:
         metrics = metrics.filter(member__email__icontains=search)
 
-    distinct_members = metrics.order_by("member__first_name").values("member__first_name", "member__last_name",
-                                                                     "member__id").distinct()
+    distinct_members = metrics\
+        .order_by("member__first_name")\
+        .values("member__first_name", "member__last_name", "member__email", "member__id")\
+        .distinct()
 
-    return [str(m.get("member__first_name") + " " + m.get("member__last_name") + " (" + str(m.get("member__id")) + ")")
-            for m in distinct_members]
+    return [getMemberName(m) for m in distinct_members]
 
 
 class MemberNode(DjangoObjectType):
