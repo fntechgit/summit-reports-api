@@ -16,6 +16,7 @@ from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, D
     DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
 from graphene_django.fields import DjangoListField
 from django.db import models
+import logging
 
 from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
@@ -35,9 +36,15 @@ def getMemberName(member) :
     name = str(member.get("member__first_name") + " " + member.get("member__last_name")) if member.get(
         "member__first_name") else member.get("member__email")
 
-    return '{name} ({id})'.format(name=name, id=member.get("member__id"))
+    return '{name} ({id}) - {attendee}'.format(name=name, id=member.get("member__id"), attendee=member.get("attendee"))
+
+def getMemberNameSQL(member) :
+    name = str(member.FirstName + " " + member.Surname) if member.FirstName else member.Email
+
+    return '{name} ({id}) - {answers}'.format(name=name, id=member.MemberId, answers=member.Answers)
 
 def getUniqueMetrics(self, metricType, fromDate, toDate, search):
+    # metrics = self.metrics.annotate(attendee=self.metrics.member.attendee_profiles.filter(summit_id=self.summit.id))
     metrics = self.metrics
 
     if metricType:
@@ -52,12 +59,25 @@ def getUniqueMetrics(self, metricType, fromDate, toDate, search):
     if search:
         metrics = metrics.filter(member__email__icontains=search)
 
-    distinct_members = metrics\
-        .order_by("member__first_name")\
-        .values("member__first_name", "member__last_name", "member__email", "member__id")\
-        .distinct()
+    # distinct_members = metrics\
+    #     .order_by("member__first_name") \
+    #     .values("member__first_name", "member__last_name", "member__email", "member__id")\
+    #     .distinct()
 
-    return [getMemberName(m) for m in distinct_members]
+    distinct_members = self.metrics.raw("\
+        SELECT DISTINCT Member.FirstName, Member.Surname, Member.Email, SummitMetric.MemberID AS MemberId, SummitMetric.ID, SummitAttendee.ID AS AttendeeID, GROUP_CONCAT(Answer.ID) AS Answers \
+        FROM SummitMetric \
+        LEFT OUTER JOIN Member ON (SummitMetric.MemberID = Member.ID) \
+        LEFT JOIN SummitAttendee ON (SummitAttendee.MemberID = Member.ID) \
+        LEFT JOIN SummitOrderExtraQuestionAnswer AS Answer ON Answer.SummitAttendeeID = SummitAttendee.ID \
+        WHERE (SummitMetric.SummitID = 31 AND SummitMetric.IngressDate >= '2021-11-03 05:00:00' AND SummitMetric.IngressDate <= '2021-11-03 11:00:00') \
+        GROUP BY Member.ID \
+        ORDER BY Member.FirstName ASC\
+    ")
+
+    [print(vars(m)) for m in distinct_members]
+
+    return [getMemberNameSQL(m) for m in distinct_members]
 
 
 class MemberNode(DjangoObjectType):
@@ -206,6 +226,7 @@ class MetricNode(DjangoObjectType):
     member_name = String()
     event_name = String()
     sponsor_name = String()
+    attendee_name = String()
 
     def resolve_member_name(self, info):
         return str(self.member.first_name + ' ' + self.member.last_name + ' (' + str(self.member.id) + ')')
@@ -225,6 +246,12 @@ class MetricNode(DjangoObjectType):
             sponsorName = str(self.sponsormetric.sponsor.company.name)
 
         return sponsorName
+
+    def resolve_attendee_name(self, info):
+        attendee = self.member.attendee_profiles.filter(summit__id=self.summit_id)
+        return attendee.id
+
+
 
     class Meta:
         model = Metric

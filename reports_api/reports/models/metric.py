@@ -32,8 +32,15 @@ class Metric(models.Model):
     member = models.ForeignKey(
         Member, related_name='metrics', db_column='MemberID', on_delete=models.CASCADE, null=True)
 
+
     def __str__(self):
-        return self.id
+        return str(self.id)
+
+    def attendee(self):
+        if hasattr(self, 'member') and self.member is not None:
+            return self.member.attendee_profiles.filter(summit=self.summit.id)
+        else:
+            return None
 
     class Meta:
         app_label = 'reports'
