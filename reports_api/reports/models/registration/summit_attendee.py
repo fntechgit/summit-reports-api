@@ -10,13 +10,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 """
+from django.db import models
 from ..base_model import BaseModel
 from ..summit import Summit
-from django.db import models
 from ..member import Member
 
 
 class SummitAttendee(BaseModel):
+    id = models.IntegerField(db_column='ID', primary_key=True)
     first_name = models.TextField(db_column='FirstName')
     surname = models.TextField(db_column='Surname')
     email = models.TextField(db_column='Email')
@@ -33,3 +34,8 @@ class SummitAttendee(BaseModel):
         Summit, related_name='attendees', db_column='SummitID', on_delete=models.CASCADE, null=True)
     member = models.ForeignKey(
         Member, related_name='attendee_profiles', db_column='MemberID', on_delete=models.CASCADE, null=True)
+
+
+    class Meta:
+        app_label = 'reports'
+        db_table = 'SummitAttendee'

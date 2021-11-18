@@ -19,3 +19,7 @@ class SummitOrderExtraQuestionAnswer(ExtraQuestionAnswer):
 
     attendee = models.ForeignKey(
         SummitAttendee, related_name='extra_question_answers', db_column='SummitAttendeeID', on_delete=models.CASCADE, null=True)
+
+    class Meta:
+        app_label = 'reports'
+        db_table = 'SummitOrderExtraQuestionAnswer'

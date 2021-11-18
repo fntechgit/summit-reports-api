@@ -20,4 +20,8 @@ class  ExtraQuestionAnswer(BaseModel):
     value = models.TextField(db_column='Value')
 
     question = models.ForeignKey(
-        ExtraQuestionType, related_name='values', db_column='QuestionID', on_delete=models.CASCADE)
+        ExtraQuestionType, related_name='answers', db_column='QuestionID', on_delete=models.CASCADE)
+
+    class Meta:
+        app_label = 'reports'
+        db_table = 'ExtraQuestionAnswer'

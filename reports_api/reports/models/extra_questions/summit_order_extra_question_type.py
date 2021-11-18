@@ -28,3 +28,7 @@ class SummitOrderExtraQuestionType(ExtraQuestionType):
 
     summit = models.ForeignKey(
         Summit, related_name='order_extra_questions', db_column='SummitID', on_delete=models.CASCADE, null=True)
+
+    class Meta:
+        app_label = 'reports'
+        db_table = 'SummitOrderExtraQuestionType'
