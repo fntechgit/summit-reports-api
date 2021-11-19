@@ -16,6 +16,7 @@ from ..base_model import BaseModel
 
 
 class ExtraQuestionType(BaseModel):
+    id = models.IntegerField(db_column='ID', primary_key=True)
     name = models.TextField(db_column='Name')
     label = models.TextField(db_column='Label')
     placeholder = models.TextField(db_column='Placeholder')

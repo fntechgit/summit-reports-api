@@ -17,6 +17,7 @@ from ..base_model import BaseModel
 
 
 class ExtraQuestionTypeValue(BaseModel):
+    id = models.IntegerField(db_column='ID', primary_key=True)
     label = models.TextField(db_column='Label')
     value = models.TextField(db_column='Value')
     order = models.IntegerField(db_column='Order')

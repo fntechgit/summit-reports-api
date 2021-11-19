@@ -16,9 +16,10 @@ from .summit_attendee import SummitAttendee
 
 
 class SummitOrderExtraQuestionAnswer(ExtraQuestionAnswer):
-
     attendee = models.ForeignKey(
         SummitAttendee, related_name='extra_question_answers', db_column='SummitAttendeeID', on_delete=models.CASCADE, null=True)
+
+    extraquestionanswer_ptr = models.OneToOneField(ExtraQuestionAnswer, on_delete=models.CASCADE, parent_link=True, db_column='ID')
 
     class Meta:
         app_label = 'reports'

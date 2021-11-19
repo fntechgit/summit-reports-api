@@ -16,14 +16,13 @@ from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, D
     DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
 from graphene_django.fields import DjangoListField
 from django.db import models
-import logging
 
 from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, \
-    PresentationVideo, Tag, \
-    MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, Company
+    PresentationVideo, Tag, MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType,\
+    Company, SummitOrderExtraQuestionType, ExtraQuestionType
 
 from reports_api.reports.filters.model_filters import \
     PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter, \
@@ -31,6 +30,12 @@ from reports_api.reports.filters.model_filters import \
 
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, \
     EventCategorySerializer, SummitEventSerializer
+
+
+
+
+
+
 
 def getMemberName(member) :
     name = str(member.get("member__first_name") + " " + member.get("member__last_name")) if member.get(
@@ -40,42 +45,61 @@ def getMemberName(member) :
 
 def getMemberNameSQL(member) :
     name = str(member.FirstName + " " + member.Surname) if member.FirstName else member.Email
+    memberInfo = '{name} ({id})'.format(name=name, id=member.MemberId)
 
-    return '{name} ({id}) - {answers}'.format(name=name, id=member.MemberId, answers=member.Answers)
+    return MetricRowModel.create(memberInfo, member.Answers)
+
+class MetricRowModel(models.Model):
+    name = models.CharField(max_length=256)
+    answers = models.CharField(max_length=256)
+
+    @classmethod
+    def create(cls, name, answers):
+        metric = cls(name=name, answers=answers)
+        # do something with metric
+        return metric
+
+class MetricRowType(DjangoObjectType):
+   class Meta:
+      model = MetricRowModel
 
 def getUniqueMetrics(self, metricType, fromDate, toDate, search):
-    # metrics = self.metrics.annotate(attendee=self.metrics.member.attendee_profiles.filter(summit_id=self.summit.id))
-    metrics = self.metrics
+    filterQuery = []
 
     if metricType:
-        metrics = metrics.filter(type=metricType)
+        filterQuery.append("Met.Type = '{type}'".format(type=metricType))
 
     if fromDate:
-        metrics = metrics.filter(ingress_date__gte=fromDate)
+        filterQuery.append("Met.IngressDate > '{date}'".format(date=fromDate))
 
     if toDate:
-        metrics = metrics.filter(ingress_date__lte=toDate)
+        filterQuery.append("Met.OutgressDate < '{date}'".format(date=toDate))
 
     if search:
-        metrics = metrics.filter(member__email__icontains=search)
-
-    # distinct_members = metrics\
-    #     .order_by("member__first_name") \
-    #     .values("member__first_name", "member__last_name", "member__email", "member__id")\
-    #     .distinct()
+        filterQuery.append("M.Email LIKE '{search}'".format(search=search))
 
     distinct_members = self.metrics.raw("\
-        SELECT DISTINCT Member.FirstName, Member.Surname, Member.Email, SummitMetric.MemberID AS MemberId, SummitMetric.ID, SummitAttendee.ID AS AttendeeID, GROUP_CONCAT(Answer.ID) AS Answers \
-        FROM SummitMetric \
-        LEFT OUTER JOIN Member ON (SummitMetric.MemberID = Member.ID) \
-        LEFT JOIN SummitAttendee ON (SummitAttendee.MemberID = Member.ID) \
-        LEFT JOIN SummitOrderExtraQuestionAnswer AS Answer ON Answer.SummitAttendeeID = SummitAttendee.ID \
-        WHERE (SummitMetric.SummitID = 31 AND SummitMetric.IngressDate >= '2021-11-03 05:00:00' AND SummitMetric.IngressDate <= '2021-11-03 11:00:00') \
-        GROUP BY Member.ID \
-        ORDER BY Member.FirstName ASC\
-    ")
+        SELECT DISTINCT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, Att.ID AS AttendeeID, \
+            GROUP_CONCAT(CONCAT(QType.ID, ':', \
+                CASE \
+                    WHEN QType.Type IN ('ComboBox','RadioButtonList') THEN QValue.value \
+                    WHEN QType.Type = 'CheckBoxList' THEN ( SELECT GROUP_CONCAT(Value SEPARATOR '|') FROM ExtraQuestionTypeValue WHERE FIND_IN_SET(ID, AnsValue.Value) > 0) \
+                    ELSE AnsValue.Value \
+                END \
+            ) SEPARATOR '|') AS Answers \
+        FROM SummitMetric Met \
+        LEFT OUTER JOIN Member M ON (Met.MemberID = M.ID) \
+        LEFT JOIN SummitAttendee Att ON (Att.MemberID = M.ID) \
+        LEFT JOIN SummitOrderExtraQuestionAnswer Ans ON Ans.SummitAttendeeID = Att.ID \
+        LEFT JOIN ExtraQuestionAnswer AnsValue ON AnsValue.ID = Ans.ID \
+        LEFT JOIN ExtraQuestionType QType ON AnsValue.QuestionID = QType.ID \
+        LEFT JOIN ExtraQuestionTypeValue QValue ON QValue.ID = AnsValue.Value \
+        WHERE (Met.SummitID = 31 AND {filter}) \
+        GROUP BY M.ID \
+        ORDER BY M.FirstName ASC\
+    ".format(filter=" AND ".join(filterQuery)))
 
-    [print(vars(m)) for m in distinct_members]
+    print(distinct_members.query)
 
     return [getMemberNameSQL(m) for m in distinct_members]
 
@@ -99,14 +123,14 @@ class OrganizationNode(DjangoObjectType):
 
 
 class SummitNode(DjangoObjectType):
-    unique_metrics = DjangoListField(String, metricType=String(), fromDate=String(), toDate=String(), search=String())
+    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), search=String())
 
     def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate="", search=""):
         return getUniqueMetrics(self, metricType, fromDate, toDate, search)
 
     class Meta:
         model = Summit
-        filter_fields = ['id', 'title', 'metrics']
+        filter_fields = ['id', 'title', 'metrics', 'order_extra_questions']
 
 
 class RegistrationNode(DjangoObjectType):
@@ -272,10 +296,10 @@ class EventMetricNode(DjangoObjectType):
 
 class SponsorNode(DjangoObjectType):
     company_name = String()
-    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String(), search=String())
+    unique_metrics = DjangoListField(MetricRowType, fromDate=String(), toDate=String(), search=String())
 
     def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
-        return getUniqueMetrics(self, None, fromDate, toDate, search)
+        return getUniqueMetrics(self, "", fromDate, toDate, search)
 
     def resolve_company_name(self, info):
         return self.company.name
@@ -296,6 +320,16 @@ class CompanyNode(DjangoObjectType):
         model = Company
         filter_fields = ['id', 'name']
 
+class ExtraQuestionType(DjangoObjectType):
+    class Meta:
+        model = ExtraQuestionType
+        filter_fields = ['id', 'name', 'label', 'order', 'mandatory']
+
+class SummitOrderExtraQuestionType(DjangoObjectType):
+    class Meta:
+        model = SummitOrderExtraQuestionType
+        filter_fields = ['id', 'usage']
+
 
 def dump(obj):
     for attr in dir(obj):
@@ -307,7 +341,7 @@ class SummitEventNode(DjangoObjectType):
     speaker_count = Int()
     attendee_count = Int()
     unique_metric_count = Int()
-    unique_metrics = DjangoListField(String, fromDate=String(), toDate=String(), search=String())
+    unique_metrics = DjangoListField(MetricRowType, fromDate=String(), toDate=String(), search=String())
 
     def resolve_speaker_count(self, info):
         return self.presentation.speakers.count() if hasattr(self,
@@ -323,7 +357,7 @@ class SummitEventNode(DjangoObjectType):
         return distinct_members.count()
 
     def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
-        return getUniqueMetrics(self, None, fromDate, toDate, search)
+        return getUniqueMetrics(self, "", fromDate, toDate, search)
 
     class Meta:
         model = SummitEvent

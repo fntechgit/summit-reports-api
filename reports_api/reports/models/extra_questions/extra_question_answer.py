@@ -16,7 +16,8 @@ from ..base_model import BaseModel
 from .extra_question_type import ExtraQuestionType
 
 
-class  ExtraQuestionAnswer(BaseModel):
+class ExtraQuestionAnswer(BaseModel):
+    id = models.IntegerField(db_column='ID', primary_key=True)
     value = models.TextField(db_column='Value')
 
     question = models.ForeignKey(
