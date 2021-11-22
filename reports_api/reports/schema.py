@@ -63,11 +63,11 @@ class MetricRowType(DjangoObjectType):
    class Meta:
       model = MetricRowModel
 
-def getUniqueMetrics(self, metricType, fromDate, toDate, search):
+def getUniqueMetrics(self, typeFilter, fromDate, toDate, search):
     filterQuery = []
 
-    if metricType:
-        filterQuery.append("Met.Type = '{type}'".format(type=metricType))
+    if typeFilter:
+        filterQuery.append(typeFilter)
 
     if fromDate:
         filterQuery.append("Met.IngressDate > '{date}'".format(date=fromDate))
@@ -79,7 +79,7 @@ def getUniqueMetrics(self, metricType, fromDate, toDate, search):
         filterQuery.append("M.Email LIKE '{search}'".format(search=search))
 
     distinct_members = self.metrics.raw("\
-        SELECT DISTINCT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, Att.ID AS AttendeeID, \
+        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, Att.ID AS AttendeeID, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
                 CASE \
                     WHEN QType.Type IN ('ComboBox','RadioButtonList') THEN QValue.value \
@@ -88,7 +88,9 @@ def getUniqueMetrics(self, metricType, fromDate, toDate, search):
                 END \
             ) SEPARATOR '|') AS Answers \
         FROM SummitMetric Met \
-        LEFT OUTER JOIN Member M ON (Met.MemberID = M.ID) \
+        LEFT JOIN SummitEventAttendanceMetric MetE ON (Met.ID = MetE.ID) \
+        LEFT JOIN SummitSponsorMetric MetS ON (Met.ID = MetS.ID) \
+        LEFT JOIN Member M ON (Met.MemberID = M.ID) \
         LEFT JOIN SummitAttendee Att ON (Att.MemberID = M.ID) \
         LEFT JOIN SummitOrderExtraQuestionAnswer Ans ON Ans.SummitAttendeeID = Att.ID \
         LEFT JOIN ExtraQuestionAnswer AnsValue ON AnsValue.ID = Ans.ID \
@@ -99,7 +101,7 @@ def getUniqueMetrics(self, metricType, fromDate, toDate, search):
         ORDER BY M.FirstName ASC\
     ".format(filter=" AND ".join(filterQuery)))
 
-    print(distinct_members.query)
+    #print(distinct_members.query)
 
     return [getMemberNameSQL(m) for m in distinct_members]
 
@@ -126,7 +128,8 @@ class SummitNode(DjangoObjectType):
     unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), search=String())
 
     def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate="", search=""):
-        return getUniqueMetrics(self, metricType, fromDate, toDate, search)
+        type_filter = "Met.Type = '{type}'".format(type=metricType) if metricType else ''
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search)
 
     class Meta:
         model = Summit
@@ -166,7 +169,7 @@ class EventFeedbackNode(DjangoObjectType):
 class LocationNode(DjangoObjectType):
     class Meta:
         model = AbstractLocation
-        filter_fields = ['id', 'name', 'venueroom']
+        filter_fields = ['id', 'name', 'venueroom', 'events__sponsors__id']
 
 
 class VenueRoomNode(DjangoObjectType):
@@ -299,7 +302,8 @@ class SponsorNode(DjangoObjectType):
     unique_metrics = DjangoListField(MetricRowType, fromDate=String(), toDate=String(), search=String())
 
     def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
-        return getUniqueMetrics(self, "", fromDate, toDate, search)
+        type_filter = "Met.Type = 'SPONSOR' AND MetS.SponsorID = {id}".format(id=self.id)
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search)
 
     def resolve_company_name(self, info):
         return self.company.name
@@ -320,12 +324,14 @@ class CompanyNode(DjangoObjectType):
         model = Company
         filter_fields = ['id', 'name']
 
-class ExtraQuestionType(DjangoObjectType):
+
+class ExtraQuestionTypeNode(DjangoObjectType):
     class Meta:
         model = ExtraQuestionType
         filter_fields = ['id', 'name', 'label', 'order', 'mandatory']
 
-class SummitOrderExtraQuestionType(DjangoObjectType):
+
+class SummitOrderExtraQuestionTypeNode(DjangoObjectType):
     class Meta:
         model = SummitOrderExtraQuestionType
         filter_fields = ['id', 'usage']
@@ -357,11 +363,12 @@ class SummitEventNode(DjangoObjectType):
         return distinct_members.count()
 
     def resolve_unique_metrics(self, info, fromDate="", toDate="", search=""):
-        return getUniqueMetrics(self, "", fromDate, toDate, search)
+        type_filter = "Met.Type = 'EVENT' AND MetE.SummitEventID = {id}".format(id=self.id)
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search)
 
     class Meta:
         model = SummitEvent
-        filter_fields = ['id', 'title', 'summit__id', 'published']
+        filter_fields = ['id', 'title', 'summit__id', 'published', 'sponsors__id']
 
 
 class PresentationNode(DjangoObjectType):
