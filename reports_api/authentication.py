@@ -23,7 +23,7 @@ class TokenValidationMiddleware(object):
         self.get_response = get_response
 
     def __call__(self, request):
-        return self.get_response(request)
+        # return self.get_response(request)
         
         try:
             access_token = TokenValidationMiddleware.get_access_token(request)
