@@ -42,3 +42,9 @@ from .company import Company
 from .metric import Metric
 from .event_metric import EventMetric
 from .sponsor_metric import SponsorMetric
+from .registration.summit_attendee import SummitAttendee
+from .registration.summit_order_extra_question_answer import SummitOrderExtraQuestionAnswer
+from .extra_questions.extra_question_answer import ExtraQuestionAnswer
+from .extra_questions.extra_question_type import ExtraQuestionType
+from .extra_questions.extra_question_type_value import ExtraQuestionTypeValue
+from .extra_questions.summit_order_extra_question_type import SummitOrderExtraQuestionType

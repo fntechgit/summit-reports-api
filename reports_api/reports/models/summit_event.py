@@ -18,6 +18,7 @@ from .event_type import EventType
 from .abstract_location import AbstractLocation
 from .tag import Tag
 from .rsvp.rsvp_template import RsvpTemplate
+from .company import Company
 
 
 class SummitEvent(models.Model):
@@ -56,6 +57,9 @@ class SummitEvent(models.Model):
     creator = models.ForeignKey(
         'Member', related_name='events', db_column='CreatedByID', on_delete=models.CASCADE, null=True)
 
+    sponsors = models.ManyToManyField(
+        Company, related_name='events', through='SummitEventSponsors',through_fields=('event_id', 'company_id'))
+
 
     def __str__(self):
         return self.id
@@ -76,3 +80,14 @@ class SummitEventTags(models.Model):
     class Meta:
         app_label = 'reports'
         db_table = 'SummitEvent_Tags'
+
+class SummitEventSponsors(models.Model):
+    event_id = models.ForeignKey(SummitEvent, db_column='SummitEventID', on_delete=models.CASCADE)
+    company_id = models.ForeignKey(Company, db_column='CompanyID', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.event_id + ' - ' + self.company_id
+
+    class Meta:
+        app_label = 'reports'
+        db_table = 'SummitEvent_Sponsors'

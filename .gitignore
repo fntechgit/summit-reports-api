@@ -105,3 +105,4 @@ venv.bak/
 
 # php storm
 .idea
+.env.test

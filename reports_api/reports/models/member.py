@@ -35,7 +35,6 @@ class Member(models.Model):
         db_table = 'Member'
 
 
-
 class MemberSchedule(models.Model):
     member_id = models.ForeignKey(Member, db_column='MemberID', on_delete=models.CASCADE)
     event_id = models.ForeignKey(SummitEvent, db_column='SummitEventID', on_delete=models.CASCADE)
