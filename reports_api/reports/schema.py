@@ -44,18 +44,26 @@ def getMemberName(member) :
     return '{name} ({id}) - {attendee}'.format(name=name, id=member.get("member__id"), attendee=member.get("attendee"))
 
 def getMemberNameSQL(member) :
-    name = str(member.FirstName + " " + member.Surname) if member.FirstName else member.Email
-    memberInfo = '{name} ({id})'.format(name=name, id=member.MemberId)
+    if member.AttendeeFN:
+        name = str(member.AttendeeFN + " " + member.AttendeeLN)
+    elif member.FirstName:
+        name = str(member.FirstName + " " + member.Surname)
+    else:
+        name = member.Email
 
-    return MetricRowModel.create(memberInfo, member.Answers)
+    memberInfo = '{name} ({id})'.format(name=name, id=member.MemberId)
+    company = member.AttendeeCompany or ''
+
+    return MetricRowModel.create(memberInfo, company, member.Answers)
 
 class MetricRowModel(models.Model):
     name = models.CharField(max_length=256)
+    company = models.CharField(max_length=256)
     answers = models.CharField(max_length=256)
 
     @classmethod
-    def create(cls, name, answers):
-        metric = cls(name=name, answers=answers)
+    def create(cls, name, company, answers):
+        metric = cls(name=name, company=company, answers=answers)
         # do something with metric
         return metric
 
@@ -81,7 +89,8 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
     filterString = " AND ".join(filterQuery)
 
     distinct_members = self.metrics.raw("\
-        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, Att.ID AS AttendeeID, \
+        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, \
+        Att.FirstName AS AttendeeFN, Att.Surname AS AttendeeLN, Att.Company AS AttendeeCompany, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
                 CASE \
                     WHEN QType.Type IN ('ComboBox','RadioButtonList') THEN QValue.value \
