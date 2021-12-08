@@ -32,44 +32,36 @@ from .serializers.model_serializers import PresentationSerializer, SpeakerSerial
     EventCategorySerializer, SummitEventSerializer
 
 
-
-
-
-
-
-def getMemberName(member) :
-    name = str(member.get("member__first_name") + " " + member.get("member__last_name")) if member.get(
-        "member__first_name") else member.get("member__email")
-
-    return '{name} ({id}) - {attendee}'.format(name=name, id=member.get("member__id"), attendee=member.get("attendee"))
-
-def getMemberNameSQL(member) :
-    if member.AttendeeFN:
-        name = str(member.AttendeeFN + " " + member.AttendeeLN)
-    elif member.FirstName:
-        name = str(member.FirstName + " " + member.Surname)
-    else:
-        name = member.Email
-
-    memberInfo = '{name} ({id})'.format(name=name, id=member.MemberId)
-    company = member.AttendeeCompany or ''
-
-    return MetricRowModel.create(memberInfo, company, member.Answers)
-
 class MetricRowModel(models.Model):
     name = models.CharField(max_length=256)
+    email = models.CharField(max_length=256)
     company = models.CharField(max_length=256)
     answers = models.CharField(max_length=256)
 
     @classmethod
-    def create(cls, name, company, answers):
-        metric = cls(name=name, company=company, answers=answers)
+    def create(cls, name, email, company, answers):
+        metric = cls(name=name, email=email, company=company, answers=answers)
         # do something with metric
         return metric
 
 class MetricRowType(DjangoObjectType):
    class Meta:
       model = MetricRowModel
+
+
+def getMemberNameSQL(metric) :
+    if metric.AttendeeFN:
+        name = str(metric.AttendeeFN + " " + metric.AttendeeLN)
+    elif metric.FirstName:
+        name = str(metric.FirstName + " " + metric.Surname)
+    else:
+        name = 'N/A'
+
+    name = '{name} ({id})'.format(name=name, id=metric.MemberId)
+    company = metric.AttendeeCompany or ''
+    email = metric.AttendeeEmail or metric.Email or ''
+
+    return MetricRowModel.create(name, email, company, metric.Answers)
 
 def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
     filterQuery = ["Met.SummitID = {summitId}".format(summitId=summitId)]
@@ -90,7 +82,7 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
 
     distinct_members = self.metrics.raw("\
         SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, \
-        Att.FirstName AS AttendeeFN, Att.Surname AS AttendeeLN, Att.Company AS AttendeeCompany, \
+        Att.FirstName AS AttendeeFN, Att.Surname AS AttendeeLN, Att.Company AS AttendeeCompany, Att.Email AS AttendeeEmail, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
                 CASE \
                     WHEN QType.Type IN ('ComboBox','RadioButtonList') THEN QValue.value \
