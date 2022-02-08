@@ -414,10 +414,10 @@ class PresentationNode(DjangoObjectType):
 
     def resolve_speaker_companies(self, info):
         speakers = self.speakers.exclude(company__isnull=True).all()
-        speaker_companies = ', '.join(str(x.full_name() + " (" + x.company + ")") for x in speakers)
+        speaker_companies = ', '.join(str('{name} ({company})'.format(name=x.full_name(), company=x.company)) for x in speakers)
 
         if hasattr(self, 'moderator') and self.moderator is not None:
-            speaker_companies = speaker_companies + ', ' + self.moderator.full_name() + ' (' + self.moderator.company + ')'
+            speaker_companies = speaker_companies + ', {name} ({company})'.format(name=self.moderator.full_name(), company=self.moderator.company)
 
         return speaker_companies
 
