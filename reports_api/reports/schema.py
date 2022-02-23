@@ -360,8 +360,8 @@ class SummitEventNode(DjangoObjectType):
         return self.presentation.attendees.count() if hasattr(self,
                                                               'presentation') and self.presentation is not None else 0
 
-    def resolve_unique_metric_count(self, info):
-        metrics = self.metrics.filter(type="EVENT", event__id=self.id)
+    def resolve_unique_metric_count(self, info, metricType='EVENT'):
+        metrics = self.metrics.filter(type=metricType, event__id=self.id)
         distinct_members = metrics.values("member__id").distinct()
         return distinct_members.count()
 
@@ -371,7 +371,7 @@ class SummitEventNode(DjangoObjectType):
 
     class Meta:
         model = SummitEvent
-        filter_fields = ['id', 'title', 'summit__id', 'published', 'sponsors__id']
+        filter_fields = ['id', 'title', 'summit__id', 'published', 'sponsors__id', 'type__type']
 
 
 class PresentationNode(DjangoObjectType):
