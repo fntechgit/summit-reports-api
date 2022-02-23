@@ -365,8 +365,8 @@ class SummitEventNode(DjangoObjectType):
         distinct_members = metrics.values("member__id").distinct()
         return distinct_members.count()
 
-    def resolve_unique_metrics(self, info, metricType='', fromDate="", toDate="", search=""):
-        type_filter = "Met.Type = 'EVENT' AND MetE.SummitEventID = {id}".format(id=self.id)
+    def resolve_unique_metrics(self, info, metricType='EVENT', fromDate="", toDate="", search=""):
+        type_filter = "Met.Type = '{type}' AND MetE.SummitEventID = {id}".format(id=self.id, type=metricType)
         return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id)
 
     class Meta:
