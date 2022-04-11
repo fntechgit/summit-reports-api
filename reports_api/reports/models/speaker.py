@@ -50,6 +50,19 @@ class Speaker(models.Model):
             else:
                 return ''
 
+    def role(self):
+        role = ''
+        if hasattr(self, 'presentations') and self.presentations is not None and self.presentations.exists():
+            role = 'Speaker'
+
+        if hasattr(self, 'moderated_presentations') and self.moderated_presentations is not None and self.moderated_presentations.exists():
+            if role != '':
+                role = str(role + ' / Moderator')
+            else:
+                role = 'Moderator'
+
+        return role
+
     class Meta:
         app_label = 'reports'
         db_table = 'PresentationSpeaker'

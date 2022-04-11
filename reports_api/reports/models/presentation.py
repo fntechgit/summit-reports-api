@@ -29,7 +29,7 @@ class Presentation(SummitEvent):
                                        through_fields=('presentation_id', 'speaker_id'))
 
     moderator = models.ForeignKey(
-        Speaker, related_name='events', db_column='ModeratorID', on_delete=models.CASCADE, null=True)
+        Speaker, related_name='moderated_presentations', db_column='ModeratorID', on_delete=models.CASCADE, null=True)
 
 
     def __str__(self):

@@ -509,6 +509,7 @@ class SpeakerNode(DjangoObjectType):
     emails = String()
     current_job_title = String()
     current_company = String()
+    role = String()
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
@@ -518,8 +519,10 @@ class SpeakerNode(DjangoObjectType):
 
     def resolve_presentation_titles(self, info, summitId=0):
         presentations = list(self.presentations.filter(summit_id=summitId).values("title"))
+        moderated_presentations = list(self.moderated_presentations.filter(summit_id=summitId).values("title"))
         presentation_titles = ' || '.join(x.get("title") for x in presentations)
-        return presentation_titles
+        moderated_presentation_titles = ' || '.join(x.get("title") for x in moderated_presentations)
+        return str(presentation_titles + " || " + moderated_presentation_titles)
 
     def resolve_feedback_count(self, info, summitId=0):
         queryset = EventFeedback.objects.filter(event__presentation__speakers__id=self.id)
@@ -571,6 +574,9 @@ class SpeakerNode(DjangoObjectType):
             pass
 
         return job_title
+
+    def resolve_role(self, info):
+        return self.role()
 
     def resolve_current_company(self, info):
         company = ''
