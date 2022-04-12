@@ -107,7 +107,10 @@ class SpeakerFilter(django_filters.FilterSet):
         fields = ['id', 'first_name', 'last_name']
 
     def has_events_from_summit_filter(self, queryset, name, value):
-        return queryset.filter(presentations__summit__id=value).distinct()
+        return queryset.filter(
+            models.Q(presentations__summit__id=value) |
+            models.Q(moderated_presentations__summit__id=value)
+        ).distinct()
 
     def has_published_events_from_summit_filter(self, queryset, name, value):
         return queryset.filter(
