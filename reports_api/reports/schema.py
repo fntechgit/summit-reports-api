@@ -377,7 +377,9 @@ class SummitEventNode(DjangoObjectType):
 class PresentationNode(DjangoObjectType):
     speaker_count = Int()
     speaker_names = String()
+    emails = String()
     speaker_emails = String()
+    member_emails = String()
     speaker_companies = String()
     attendee_count = Int()
     rsvp_count = Int()
@@ -403,12 +405,30 @@ class PresentationNode(DjangoObjectType):
 
         return speaker_names
 
-    def resolve_speaker_emails(self, info):
-        speakers = self.speakers.exclude(member__email__isnull=True).all()
+    def resolve_emails(self, info):
+        speakers = self.speakers.all()
         speaker_emails = ', '.join(str(x.full_name() + ' (' + x.email() + ')') for x in speakers)
 
         if hasattr(self, 'moderator') and self.moderator is not None:
             speaker_emails = speaker_emails + ', ' + self.moderator.full_name() + ' (' + self.moderator.email() + ')'
+
+        return speaker_emails
+
+    def resolve_speaker_emails(self, info):
+        speakers = self.speakers.exclude(registration__email__isnull=True).all()
+        speaker_emails = ', '.join(str(x.full_name() + ' (' + x.speaker_email() + ')') for x in speakers)
+
+        if hasattr(self, 'moderator') and self.moderator is not None:
+            speaker_emails = speaker_emails + ', ' + self.moderator.full_name() + ' (' + self.moderator.speaker_email() + ')'
+
+        return speaker_emails
+
+    def resolve_member_emails(self, info):
+        speakers = self.speakers.exclude(member__email__isnull=True).all()
+        speaker_emails = ', '.join(str(x.full_name() + ' (' + x.member_email() + ')') for x in speakers)
+
+        if hasattr(self, 'moderator') and self.moderator is not None:
+            speaker_emails = speaker_emails + ', ' + self.moderator.full_name() + ' (' + self.moderator.member_email() + ')'
 
         return speaker_emails
 

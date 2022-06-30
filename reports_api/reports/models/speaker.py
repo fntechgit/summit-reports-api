@@ -42,13 +42,24 @@ class Speaker(models.Model):
         return str(self.id)
 
     def email(self):
+        if hasattr(self, 'registration') and self.registration is not None:
+            return self.registration.email
+        elif hasattr(self, 'member') and self.member is not None:
+            return self.member.email
+        else:
+            return ''
+
+    def speaker_email(self):
+        if hasattr(self, 'registration') and self.registration is not None:
+            return self.registration.email
+        else:
+            return ''
+
+    def member_email(self):
         if hasattr(self, 'member') and self.member is not None:
             return self.member.email
         else:
-            if hasattr(self, 'registration') and self.registration is not None:
-                return self.registration.email
-            else:
-                return ''
+            return ''
 
     def role(self):
         role = ''
