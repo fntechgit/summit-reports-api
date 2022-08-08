@@ -35,6 +35,7 @@ class SummitEvent(models.Model):
     streaming_url = models.TextField(db_column='StreamingUrl', null=True)
     etherpad_link = models.TextField(db_column='EtherpadLink', null=True)
     meeting_url = models.TextField(db_column='MeetingUrl', null=True)
+    created = models.DateTimeField(db_column='Created', null=True, default=None)
 
     summit = models.ForeignKey(
         Summit, related_name='events', db_column='SummitID', on_delete=models.CASCADE, null=True)
