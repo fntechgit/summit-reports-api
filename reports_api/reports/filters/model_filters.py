@@ -277,7 +277,9 @@ class MetricFilter(django_filters.FilterSet):
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
             models.Q(member__email__icontains=value) |
-            models.Q(member__last_name__icontains=value)
+            models.Q(member__last_name__icontains=value)|
+            models.Q(eventmetric__attendee__email__icontains=value)|
+            models.Q(eventmetric__room__name__icontains=value)
         )
 
         return queryset

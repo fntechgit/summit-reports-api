@@ -14,14 +14,24 @@
 from django.db import models
 from .summit_event import SummitEvent
 from .metric import Metric
+from .registration.summit_attendee import SummitAttendee
+from .venue_room import VenueRoom
 
 
 class EventMetric(Metric):
+    sub_type = models.TextField(db_column='SubType', default='VIRTUAL')
+
     event = models.ForeignKey(
         SummitEvent, related_name='metrics', db_column='SummitEventID', on_delete=models.CASCADE, null=True)
 
+    room = models.ForeignKey(
+        VenueRoom, related_name='metrics', db_column='SummitVenueRoomID', on_delete=models.CASCADE, null=True)
+
     metric_ptr = models.OneToOneField(
         Metric, on_delete=models.CASCADE, parent_link=True, db_column='ID')
+
+    attendee = models.ForeignKey(
+        SummitAttendee, related_name='metrics', db_column='SummitAttendeeID', on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return self.id

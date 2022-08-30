@@ -37,10 +37,11 @@ class MetricRowModel(models.Model):
     email = models.CharField(max_length=256)
     company = models.CharField(max_length=256)
     answers = models.CharField(max_length=256)
+    sub_type = models.CharField(max_length=256)
 
     @classmethod
-    def create(cls, name, email, company, answers):
-        metric = cls(name=name, email=email, company=company, answers=answers)
+    def create(cls, name, email, company, answers, sub_type):
+        metric = cls(name=name, email=email, company=company, answers=answers, sub_type=sub_type)
         # do something with metric
         return metric
 
@@ -52,16 +53,21 @@ class MetricRowType(DjangoObjectType):
 def getMemberNameSQL(metric) :
     if metric.AttendeeFN:
         name = str(metric.AttendeeFN + " " + metric.AttendeeLN)
+    elif metric.MAttendeeFN:
+        name = str(metric.MAttendeeFN + " " + metric.MAttendeeLN)
     elif metric.FirstName:
         name = str(metric.FirstName + " " + metric.Surname)
     else:
         name = 'N/A'
 
     name = '{name} ({id})'.format(name=name, id=metric.MemberId)
-    company = metric.AttendeeCompany or ''
-    email = metric.AttendeeEmail or metric.Email or ''
+    company = metric.AttendeeCompany or metric.MAttendeeCompany or ''
+    email = metric.AttendeeEmail or metric.MAttendeeEmail or metric.Email or ''
+    subType = metric.sub_type or ''
 
-    return MetricRowModel.create(name, email, company, metric.Answers)
+    metricObj = MetricRowModel.create(name, email, company, metric.Answers, subType)
+
+    return metricObj
 
 def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
     filterQuery = ["Met.SummitID = {summitId}".format(summitId=summitId)]
@@ -76,13 +82,14 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
         filterQuery.append("Met.OutgressDate < '{date}'".format(date=toDate))
 
     if search:
-        filterQuery.append("M.Email LIKE '{search}'".format(search=search))
+        filterQuery.append("(M.Email LIKE '%%{search}%%' OR Att.Email LIKE '%%{search}%%' OR Att2.Email LIKE '%%{search}%%' OR L.Name LIKE '%%{search}%%')".format(search=search))
 
     filterString = " AND ".join(filterQuery)
 
     distinct_members = self.metrics.raw("\
-        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, \
-        Att.FirstName AS AttendeeFN, Att.Surname AS AttendeeLN, Att.Company AS AttendeeCompany, Att.Email AS AttendeeEmail, \
+        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, MetE.SubType AS SubType, \
+        Att.FirstName AS MAttendeeFN, Att.Surname AS MAttendeeLN, Att.Company AS MAttendeeCompany, Att.Email AS MAttendeeEmail, \
+        Att2.FirstName AS AttendeeFN, Att2.Surname AS AttendeeLN, Att2.Company AS AttendeeCompany, Att2.Email AS AttendeeEmail, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
                 CASE \
                     WHEN QType.Type IN ('ComboBox','RadioButtonList') THEN QValue.value \
@@ -92,9 +99,11 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
             ) SEPARATOR '|') AS Answers \
         FROM SummitMetric Met \
         LEFT JOIN SummitEventAttendanceMetric MetE ON (Met.ID = MetE.ID) \
+        LEFT JOIN SummitAbstractLocation L ON (L.ID = MetE.SummitVenueRoomID) \
         LEFT JOIN SummitSponsorMetric MetS ON (Met.ID = MetS.ID) \
         LEFT JOIN Member M ON (Met.MemberID = M.ID) \
         LEFT JOIN SummitAttendee Att ON (Att.MemberID = M.ID) \
+        LEFT JOIN SummitAttendee Att2 ON (MetE.SummitAttendeeID = Att2.ID) \
         LEFT JOIN SummitOrderExtraQuestionAnswer Ans ON Ans.SummitAttendeeID = Att.ID \
         LEFT JOIN ExtraQuestionAnswer AnsValue ON AnsValue.ID = Ans.ID \
         LEFT JOIN ExtraQuestionType QType ON AnsValue.QuestionID = QType.ID \
@@ -176,9 +185,16 @@ class LocationNode(DjangoObjectType):
 
 
 class VenueRoomNode(DjangoObjectType):
+    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(),
+                                     search=String())
+
+    def resolve_unique_metrics(self, info, metricType='', fromDate="", toDate="", search=""):
+        type_filter = "Met.Type = '{type}' AND MetE.SummitVenueRoomID = {id}".format(type=metricType, id=self.id) if metricType else ''
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id)
+
     class Meta:
         model = VenueRoom
-        filter_fields = ['id', 'name', 'venue']
+        filter_fields = ['id', 'name', 'venue', 'metrics']
 
 
 class RsvpAnswerNode(DjangoObjectType):
@@ -257,6 +273,7 @@ class MetricNode(DjangoObjectType):
     event_name = String()
     sponsor_name = String()
     attendee_name = String()
+    location_name = String()
 
     def resolve_member_name(self, info):
         return str(self.member.first_name + ' ' + self.member.last_name + ' (' + str(self.member.id) + ')')
@@ -264,7 +281,7 @@ class MetricNode(DjangoObjectType):
     def resolve_event_name(self, info):
         eventName = ''
 
-        if hasattr(self, 'eventmetric'):
+        if hasattr(self, 'eventmetric') and self.eventmetric.event is not None:
             eventName = str(self.eventmetric.event.title + ' (' + str(self.eventmetric.event.id) + ')')
 
         return eventName
@@ -281,7 +298,16 @@ class MetricNode(DjangoObjectType):
         attendee = self.member.attendee_profiles.filter(summit__id=self.summit_id)
         return attendee.id
 
+    def resolve_location_name(self, info):
+        roomName = ''
 
+        if hasattr(self, 'eventmetric'):
+            if self.eventmetric.event is not None:
+                roomName = self.eventmetric.event.location.name
+            elif self.eventmetric.room is not None:
+                roomName = self.eventmetric.room.name
+
+        return roomName
 
     class Meta:
         model = Metric

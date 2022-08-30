@@ -22,6 +22,8 @@ class SummitAttendee(BaseModel):
     surname = models.TextField(db_column='Surname')
     email = models.TextField(db_column='Email')
     company_name = models.TextField(db_column='Company')
+    shared_contact_info = models.IntegerField(db_column='SharedContactInfo', null=True)
+    checked_in = models.IntegerField(db_column='SummitHallCheckedIn', null=True)
 
     STATUS_COMPLETE = 'Complete'
     STATUS_INCOMPLETE = 'Incomplete'
