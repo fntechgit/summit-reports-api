@@ -38,10 +38,12 @@ class MetricRowModel(models.Model):
     company = models.CharField(max_length=256)
     answers = models.CharField(max_length=256)
     sub_type = models.CharField(max_length=256)
+    ingress = models.CharField(max_length=256)
+    outgress = models.CharField(max_length=256)
 
     @classmethod
-    def create(cls, name, email, company, answers, sub_type):
-        metric = cls(name=name, email=email, company=company, answers=answers, sub_type=sub_type)
+    def create(cls, name, email, company, answers, sub_type, ingress, outgress):
+        metric = cls(name=name, email=email, company=company, answers=answers, sub_type=sub_type, ingress=ingress, outgress=outgress)
         # do something with metric
         return metric
 
@@ -64,8 +66,10 @@ def getMemberNameSQL(metric) :
     company = metric.AttendeeCompany or metric.MAttendeeCompany or ''
     email = metric.AttendeeEmail or metric.MAttendeeEmail or metric.Email or ''
     subType = metric.sub_type or ''
+    ingress = metric.ingress_date or ''
+    outgress = metric.outgress_date or ''
 
-    metricObj = MetricRowModel.create(name, email, company, metric.Answers, subType)
+    metricObj = MetricRowModel.create(name, email, company, metric.Answers, subType, ingress, outgress)
 
     return metricObj
 
@@ -87,7 +91,7 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
     filterString = " AND ".join(filterQuery)
 
     distinct_members = self.metrics.raw("\
-        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, MetE.SubType AS SubType, \
+        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, MetE.SubType AS SubType, MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress,\
         Att.FirstName AS MAttendeeFN, Att.Surname AS MAttendeeLN, Att.Company AS MAttendeeCompany, Att.Email AS MAttendeeEmail, \
         Att2.FirstName AS AttendeeFN, Att2.Surname AS AttendeeLN, Att2.Company AS AttendeeCompany, Att2.Email AS AttendeeEmail, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
