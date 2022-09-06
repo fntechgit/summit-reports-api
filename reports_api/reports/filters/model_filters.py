@@ -260,6 +260,7 @@ class TagFilter(django_filters.FilterSet):
 class MetricFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(field_name='summit__id')
     member_id = django_filters.NumberFilter(field_name='member__id')
+    attendee_id = django_filters.NumberFilter(field_name='eventmetric__attendee__id')
     event_id = django_filters.NumberFilter(field_name='eventmetric__event__id')
     ev_room_id = django_filters.NumberFilter(field_name='eventmetric__event__location__id')
     room_id = django_filters.NumberFilter(field_name='eventmetric__room__id')

@@ -40,10 +40,12 @@ class MetricRowModel(models.Model):
     sub_type = models.CharField(max_length=256)
     ingress = models.CharField(max_length=256)
     outgress = models.CharField(max_length=256)
+    member_id = models.CharField(max_length=256)
+    attendee_id = models.CharField(max_length=256)
 
     @classmethod
-    def create(cls, name, email, company, answers, sub_type, ingress, outgress):
-        metric = cls(name=name, email=email, company=company, answers=answers, sub_type=sub_type, ingress=ingress, outgress=outgress)
+    def create(cls, name, email, company, answers, sub_type, ingress, outgress, member_id, attendee_id):
+        metric = cls(name=name, email=email, company=company, answers=answers, sub_type=sub_type, ingress=ingress, outgress=outgress, member_id=member_id, attendee_id=attendee_id)
         # do something with metric
         return metric
 
@@ -68,8 +70,10 @@ def getMemberNameSQL(metric) :
     subType = metric.sub_type or ''
     ingress = metric.ingress_date or ''
     outgress = metric.outgress_date or ''
+    memberId = metric.member_id or ''
+    attendeeId = metric.attendee_id or ''
 
-    metricObj = MetricRowModel.create(name, email, company, metric.Answers, subType, ingress, outgress)
+    metricObj = MetricRowModel.create(name, email, company, metric.Answers, subType, ingress, outgress, memberId, attendeeId)
 
     return metricObj
 
@@ -91,7 +95,8 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
     filterString = " AND ".join(filterQuery)
 
     distinct_members = self.metrics.raw("\
-        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Met.ID, MetE.SubType AS SubType, MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress,\
+        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Att2.ID AS AttendeeId, Met.ID, \
+        MetE.SubType AS SubType, MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress,\
         Att.FirstName AS MAttendeeFN, Att.Surname AS MAttendeeLN, Att.Company AS MAttendeeCompany, Att.Email AS MAttendeeEmail, \
         Att2.FirstName AS AttendeeFN, Att2.Surname AS AttendeeLN, Att2.Company AS AttendeeCompany, Att2.Email AS AttendeeEmail, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
@@ -278,9 +283,15 @@ class MetricNode(DjangoObjectType):
     sponsor_name = String()
     attendee_name = String()
     location_name = String()
+    sub_type = String()
+    attendee_email = String()
+    member_email = String()
 
     def resolve_member_name(self, info):
         return str(self.member.first_name + ' ' + self.member.last_name + ' (' + str(self.member.id) + ')')
+
+    def resolve_member_email(self, info):
+        return self.member.email or ''
 
     def resolve_event_name(self, info):
         eventName = ''
@@ -299,8 +310,22 @@ class MetricNode(DjangoObjectType):
         return sponsorName
 
     def resolve_attendee_name(self, info):
-        attendee = self.member.attendee_profiles.filter(summit__id=self.summit_id)
-        return attendee.id
+        attendeeName = ''
+
+        if hasattr(self, 'eventmetric'):
+            if self.eventmetric.attendee is not None:
+                attendeeName = str(self.eventmetric.attendee.first_name + ' ' + self.eventmetric.attendee.surname + ' (' + str(self.eventmetric.attendee.id) + ')')
+
+        return attendeeName
+
+    def resolve_attendee_email(self, info):
+        attendeeEmail = ''
+
+        if hasattr(self, 'eventmetric'):
+            if self.eventmetric.attendee is not None:
+                attendeeEmail = self.eventmetric.attendee.email
+
+        return attendeeEmail
 
     def resolve_location_name(self, info):
         roomName = ''
@@ -312,6 +337,9 @@ class MetricNode(DjangoObjectType):
                 roomName = self.eventmetric.room.name
 
         return roomName
+
+    def resolve_sub_type(self, info):
+        return self.eventmetric.sub_type or ''
 
     class Meta:
         model = Metric
