@@ -67,11 +67,11 @@ def getMemberNameSQL(metric) :
     name = '{name} ({id})'.format(name=name, id=metric.MemberId)
     company = metric.AttendeeCompany or metric.MAttendeeCompany or ''
     email = metric.AttendeeEmail or metric.MAttendeeEmail or metric.Email or ''
-    subType = metric.sub_type or ''
+    subType = metric.sub_type if hasattr(metric, 'sub_type') else ''
     ingress = metric.ingress_date or ''
     outgress = metric.outgress_date or ''
-    memberId = metric.member_id or ''
-    attendeeId = metric.attendee_id or ''
+    memberId = metric.member_id if hasattr(metric, 'member_id') else ''
+    attendeeId = metric.attendee_id if hasattr(metric, 'attendee_id') else ''
 
     metricObj = MetricRowModel.create(name, email, company, metric.Answers, subType, ingress, outgress, memberId, attendeeId)
 
