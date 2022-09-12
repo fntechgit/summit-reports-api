@@ -77,7 +77,7 @@ def getMemberNameSQL(metric) :
 
     return metricObj
 
-def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
+def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId, sortBy='M.FirstName', sortDir='ASC'):
     filterQuery = ["Met.SummitID = {summitId}".format(summitId=summitId)]
 
     if typeFilter:
@@ -119,8 +119,8 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId):
         LEFT JOIN ExtraQuestionTypeValue QValue ON QValue.ID = AnsValue.Value \
         WHERE ({filter}) \
         GROUP BY M.ID \
-        ORDER BY M.FirstName ASC\
-    ".format(filter=filterString))
+        ORDER BY {sort_by} {sort_dir}\
+    ".format(filter=filterString, sort_by=sortBy, sort_dir=sortDir))
 
     #print(distinct_members.query)
 
@@ -194,12 +194,12 @@ class LocationNode(DjangoObjectType):
 
 
 class VenueRoomNode(DjangoObjectType):
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(),
-                                     search=String())
+    unique_metrics = DjangoListField(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), search=String(), sortBy=String(), sortDir=String())
 
-    def resolve_unique_metrics(self, info, metricType='', fromDate="", toDate="", search=""):
+    def resolve_unique_metrics(self, info, metricType='ROOM', metricSubType='', fromDate="", toDate="", search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = '{type}' AND MetE.SummitVenueRoomID = {id}".format(type=metricType, id=self.id) if metricType else ''
-        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id)
+        type_filter = "{filter} AND MetE.SubType = '{subtype}'".format(filter=type_filter, subtype=metricSubType) if metricSubType else type_filter
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id, sortBy, sortDir)
 
     class Meta:
         model = VenueRoom
@@ -360,11 +360,11 @@ class EventMetricNode(DjangoObjectType):
 
 class SponsorNode(DjangoObjectType):
     company_name = String()
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), search=String())
+    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), search=String(), sortBy=String(), sortDir=String())
 
-    def resolve_unique_metrics(self, info, metricType='', fromDate="", toDate="", search=""):
+    def resolve_unique_metrics(self, info, metricType='', fromDate="", toDate="", search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = 'SPONSOR' AND MetS.SponsorID = {id}".format(id=self.id)
-        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id)
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id, sortBy, sortDir)
 
     def resolve_company_name(self, info):
         return self.company.name
@@ -408,7 +408,7 @@ class SummitEventNode(DjangoObjectType):
     speaker_count = Int()
     attendee_count = Int()
     unique_metric_count = Int()
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), search=String())
+    unique_metrics = DjangoListField(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_speaker_count(self, info):
         return self.presentation.speakers.count() if hasattr(self,
@@ -423,9 +423,11 @@ class SummitEventNode(DjangoObjectType):
         distinct_members = metrics.values("member__id").distinct()
         return distinct_members.count()
 
-    def resolve_unique_metrics(self, info, metricType='EVENT', fromDate="", toDate="", search=""):
+    def resolve_unique_metrics(self, info, metricType='EVENT', metricSubType='', fromDate="", toDate="", search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = '{type}' AND MetE.SummitEventID = {id}".format(id=self.id, type=metricType)
-        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id)
+        type_filter = "{filter} AND MetE.SubType = '{subtype}'".format(filter=type_filter, subtype=metricSubType) if metricSubType else type_filter
+
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.summit.id, sortBy, sortDir)
 
     class Meta:
         model = SummitEvent
