@@ -55,18 +55,9 @@ class MetricRowType(DjangoObjectType):
 
 
 def getMemberNameSQL(metric) :
-    if metric.AttendeeFN:
-        name = str(metric.AttendeeFN + " " + metric.AttendeeLN)
-    elif metric.MAttendeeFN:
-        name = str(metric.MAttendeeFN + " " + metric.MAttendeeLN)
-    elif metric.FirstName:
-        name = str(metric.FirstName + " " + metric.Surname)
-    else:
-        name = 'N/A'
-
-    name = '{name} ({id})'.format(name=name, id=metric.MemberId)
-    company = metric.AttendeeCompany or metric.MAttendeeCompany or ''
-    email = metric.AttendeeEmail or metric.MAttendeeEmail or metric.Email or ''
+    name = str(metric.FirstName + " " + metric.LastName + ' (' + str(metric.UserId) + ')')
+    company = metric.Company or ''
+    email = metric.Email or ''
     subType = metric.sub_type if hasattr(metric, 'sub_type') else ''
     ingress = metric.ingress_date or ''
     outgress = metric.outgress_date or ''
@@ -77,7 +68,7 @@ def getMemberNameSQL(metric) :
 
     return metricObj
 
-def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId, sortBy='M.FirstName', sortDir='ASC'):
+def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId, sortBy='FirstName', sortDir='ASC'):
     filterQuery = ["Met.SummitID = {summitId}".format(summitId=summitId)]
 
     if typeFilter:
@@ -90,15 +81,15 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId, sortB
         filterQuery.append("Met.OutgressDate < '{date}'".format(date=toDate))
 
     if search:
-        filterQuery.append("(M.Email LIKE '%%{search}%%' OR Att.Email LIKE '%%{search}%%' OR Att2.Email LIKE '%%{search}%%' OR L.Name LIKE '%%{search}%%')".format(search=search))
+        filterQuery.append("(Email LIKE '%%{search}%%' OR L.Name LIKE '%%{search}%%')".format(search=search))
 
     filterString = " AND ".join(filterQuery)
 
     distinct_members = self.metrics.raw("\
-        SELECT M.FirstName, M.Surname, M.Email, Met.MemberID AS MemberId, Att2.ID AS AttendeeId, Met.ID, \
-        MetE.SubType AS SubType, MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress,\
-        Att.FirstName AS MAttendeeFN, Att.Surname AS MAttendeeLN, Att.Company AS MAttendeeCompany, Att.Email AS MAttendeeEmail, \
-        Att2.FirstName AS AttendeeFN, Att2.Surname AS AttendeeLN, Att2.Company AS AttendeeCompany, Att2.Email AS AttendeeEmail, \
+        SELECT Met.ID, Met.MemberID AS MemberId, Att2.ID AS AttendeeId, MetE.SubType AS SubType, COALESCE(Att2.ID, Att.ID, M.ID) AS UserId, \
+        MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress, COALESCE(Att2.FirstName, Att.FirstName, M.FirstName, '') AS FirstName, \
+        COALESCE(Att2.Surname, Att.Surname, M.Surname, '') AS LastName, COALESCE(Att2.Company, Att.Company, '') AS Company, \
+        COALESCE(Att2.Email, Att.Email, M.Email, '') AS Email, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
                 CASE \
                     WHEN QType.Type IN ('ComboBox','RadioButtonList') THEN QValue.value \
