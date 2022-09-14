@@ -137,11 +137,11 @@ class OrganizationNode(DjangoObjectType):
 
 
 class SummitNode(DjangoObjectType):
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), search=String())
+    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), search=String(), sortBy=String(), sortDir=String())
 
-    def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate="", search=""):
+    def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate="", search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = '{type}'".format(type=metricType) if metricType else ''
-        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.id)
+        return getUniqueMetrics(self, type_filter, fromDate, toDate, search, self.id, sortBy, sortDir)
 
     class Meta:
         model = Summit
