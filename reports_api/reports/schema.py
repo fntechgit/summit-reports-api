@@ -55,14 +55,15 @@ class MetricRowType(DjangoObjectType):
 
 
 def getMemberNameSQL(metric) :
+
     name = str(metric.FirstName + " " + metric.LastName + ' (' + str(metric.UserId) + ')')
     company = metric.Company or ''
     email = metric.Email or ''
-    subType = metric.sub_type if hasattr(metric, 'sub_type') else ''
-    ingress = metric.ingress_date or ''
-    outgress = metric.outgress_date or ''
-    memberId = metric.member_id if hasattr(metric, 'member_id') else ''
-    attendeeId = metric.attendee_id if hasattr(metric, 'attendee_id') else ''
+    subType = metric.MSubType or ''
+    ingress = metric.Ingress or ''
+    outgress = metric.Outgress or ''
+    memberId = metric.MemberId or ''
+    attendeeId = metric.AttendeeId or ''
 
     metricObj = MetricRowModel.create(name, email, company, metric.Answers, subType, ingress, outgress, memberId, attendeeId)
 
@@ -86,7 +87,7 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, search, summitId, sortB
     filterString = " AND ".join(filterQuery)
 
     distinct_members = self.metrics.raw("\
-        SELECT Met.ID, Met.MemberID AS MemberId, Att2.ID AS AttendeeId, MetE.SubType AS SubType, COALESCE(Att2.ID, Att.ID, M.ID) AS UserId, \
+        SELECT Met.ID, Met.MemberID AS MemberId, Att2.ID AS AttendeeId, MetE.SubType AS MSubType, COALESCE(Att2.ID, Att.ID, M.ID) AS UserId, \
         MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress, COALESCE(Att2.FirstName, Att.FirstName, M.FirstName, '') AS FirstName, \
         COALESCE(Att2.Surname, Att.Surname, M.Surname, '') AS LastName, COALESCE(Att2.Company, Att.Company, '') AS Company, \
         COALESCE(Att2.Email, Att.Email, M.Email, '') AS Email, \
