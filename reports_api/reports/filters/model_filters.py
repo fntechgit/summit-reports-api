@@ -269,6 +269,7 @@ class MetricFilter(django_filters.FilterSet):
     from_date = django_filters.DateTimeFilter(method='from_date_filter')
     to_date = django_filters.DateTimeFilter(method='to_date_filter')
     search = django_filters.CharFilter(method='search_filter')
+    only_finished = django_filters.BooleanFilter(method='only_finished_filter')
 
     def from_date_filter(self, queryset, name, value):
         return queryset.filter(ingress_date__gte=value)
@@ -283,6 +284,11 @@ class MetricFilter(django_filters.FilterSet):
             models.Q(eventmetric__attendee__email__icontains=value)|
             models.Q(eventmetric__room__name__icontains=value)
         )
+
+        return queryset
+
+    def only_finished_filter(self, queryset, name, value):
+        queryset = queryset.filter(outgress_date__isnull=False)
 
         return queryset
 
