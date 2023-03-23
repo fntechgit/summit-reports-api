@@ -799,7 +799,6 @@ class CustomDjangoListObjectField(DjangoListObjectField):
             )
 
         list.results = qs
-        list.count = qs.count
         return list
 
 
