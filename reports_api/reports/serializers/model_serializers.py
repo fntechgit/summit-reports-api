@@ -7,7 +7,7 @@ class MemberSerializer(serializers.ModelSerializer):
         model = Member
 
 class SpeakerSerializer(serializers.ModelSerializer):
-    role_order = serializers.IntegerField(read_only=True)
+    role_by_summit = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Speaker

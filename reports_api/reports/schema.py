@@ -789,7 +789,7 @@ class CustomDjangoListObjectField(DjangoListObjectField):
             qs = qs.annotate(
                 moderate_count=SubqueryCount(moderated),
                 speaker_count=SubqueryCount(speaker),
-                role_order=Case(
+                role_by_summit=Case(
                     When(Q(speaker_count__gt=0) & Q(moderate_count=0), then=3),
                     When(Q(speaker_count__gt=0) & Q(moderate_count__gt=0), then=2),
                     When(Q(speaker_count=0) & Q(moderate_count__gt=0), then=1),
