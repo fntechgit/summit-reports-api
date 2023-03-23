@@ -28,6 +28,9 @@ class Speaker(models.Model):
 
     member = models.OneToOneField(Member, on_delete=models.CASCADE, db_column='MemberID', null=True)
 
+    @property
+    def role_order(self):
+        return self.role_order
 
     def __str__(self):
         return self.id

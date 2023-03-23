@@ -773,19 +773,20 @@ class PresentationModelType(DjangoSerializerType):
         serializer_class = PresentationSerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
-
+# custom class to inject aannotation
 class CustomDjangoListObjectField(DjangoListObjectField):
 
+    # overrided method to add the custom annotation for filtering
     def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
         list = super().list_resolver(manager, filterset_class, filtering_args, root, info, **kwargs)
         qs = list.results
-
+        # there should be a better way yo get the summit id filter
         if 'summit_id' in kwargs:
             summit_id = int(kwargs.get('summit_id'))
             speaker = Presentation.objects.filter(Q(speakers=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
             moderated = Presentation.objects.filter(Q(moderator=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
 
-            qs.annotate(
+            qs = qs.annotate(
                 moderate_count=SubqueryCount(moderated),
                 speaker_count=SubqueryCount(speaker),
                 role_order=Case(
@@ -795,11 +796,12 @@ class CustomDjangoListObjectField(DjangoListObjectField):
                     default=0,
                     output_field=IntegerField(),
                 )
-            ).values()
+            )
 
         list.results = qs
         list.count = qs.count
         return list
+
 
 class SpeakerModelType(DjangoSerializerType):
 
