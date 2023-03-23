@@ -29,7 +29,16 @@ from reports_api.reports.filters.model_filters import \
     SummitEventFilter
 
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, \
-    EventCategorySerializer, SummitEventSerializer
+    EventCategorySerializer
+
+from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, CharField, Q
+
+
+class SubqueryCount(Subquery):
+    # Custom Count function to just perform simple count on any queryset without grouping.
+    # https://stackoverflow.com/a/47371514/1164966
+    template = "(SELECT count(*) FROM (%(subquery)s) _count)"
+    output_field = PositiveIntegerField()
 
 
 class MetricRowModel(models.Model):
@@ -765,7 +774,39 @@ class PresentationModelType(DjangoSerializerType):
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
+class CustomDjangoListObjectField(DjangoListObjectField):
+
+    def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
+        list = super().list_resolver(manager, filterset_class, filtering_args, root, info, **kwargs)
+        qs = list.results
+
+        if 'summit_id' in kwargs:
+            summit_id = int(kwargs.get('summit_id'))
+            speaker = Presentation.objects.filter(Q(speakers=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
+            moderated = Presentation.objects.filter(Q(moderator=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
+
+            qs.annotate(
+                moderate_count=SubqueryCount(moderated),
+                speaker_count=SubqueryCount(speaker),
+                role_order=Case(
+                    When(Q(speaker_count__gt=0) & Q(moderate_count=0), then=3),
+                    When(Q(speaker_count__gt=0) & Q(moderate_count__gt=0), then=2),
+                    When(Q(speaker_count=0) & Q(moderate_count__gt=0), then=1),
+                    default=0,
+                    output_field=IntegerField(),
+                )
+            ).values()
+
+        list.results = qs
+        list.count = qs.count
+        return list
+
 class SpeakerModelType(DjangoSerializerType):
+
+    @classmethod
+    def ListField(cls, *args, **kwargs):
+        return CustomDjangoListObjectField(cls._meta.output_list_type, resolver=cls.list, **kwargs)
+
     class Meta(object):
         serializer_class = SpeakerSerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
