@@ -770,31 +770,34 @@ class PresentationModelType(DjangoSerializerType):
         serializer_class = PresentationSerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
-# custom class to inject aannotation
-class CustomDjangoListObjectField(DjangoListObjectField):
 
-    # overrided method to add the custom annotation for filtering
+# custom class to inject annotation
+class SpeakerModelDjangoListObjectField(DjangoListObjectField):
+
+    # overloaded method to add the custom annotation for filtering
     def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
         list = super().list_resolver(manager, filterset_class, filtering_args, root, info, **kwargs)
         qs = list.results
         # there should be a better way yo get the summit id filter
         # @see https://docs.graphene-python.org/projects/django/en/latest/queries/#default-queryset
         if 'summit_id' in kwargs:
-            summit_id = int(kwargs.get('summit_id'))
-            speaker = Presentation.objects.filter(Q(speakers=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
-            moderated = Presentation.objects.filter(Q(moderator=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
+            summit_id = int(kwargs.pop('summit_id', None))
+            if summit_id > 0:
+                # if we provided a summit id param ( filtering ) then perform the subqueries to allow to add annotations
+                speaker = Presentation.objects.filter(Q(speakers=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
+                moderated = Presentation.objects.filter(Q(moderator=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
 
-            qs = qs.annotate(
-                moderate_count=SubqueryCount(moderated),
-                speaker_count=SubqueryCount(speaker),
-                role_by_summit=Case(
-                    When(Q(speaker_count__gt=0) & Q(moderate_count=0), then=3),
-                    When(Q(speaker_count__gt=0) & Q(moderate_count__gt=0), then=2),
-                    When(Q(speaker_count=0) & Q(moderate_count__gt=0), then=1),
-                    default=0,
-                    output_field=IntegerField(),
+                qs = qs.annotate(
+                    moderate_count=SubqueryCount(moderated),
+                    speaker_count=SubqueryCount(speaker),
+                    role_by_summit=Case(
+                        When(Q(speaker_count__gt=0) & Q(moderate_count=0), then=3),
+                        When(Q(speaker_count__gt=0) & Q(moderate_count__gt=0), then=2),
+                        When(Q(speaker_count=0) & Q(moderate_count__gt=0), then=1),
+                        default=0,
+                        output_field=IntegerField(),
+                    )
                 )
-            )
 
         list.results = qs
         return list
@@ -802,9 +805,10 @@ class CustomDjangoListObjectField(DjangoListObjectField):
 
 class SpeakerModelType(DjangoSerializerType):
 
+    # override to inject a custom implementation
     @classmethod
     def ListField(cls, *args, **kwargs):
-        return CustomDjangoListObjectField(cls._meta.output_list_type, resolver=cls.list, **kwargs)
+        return SpeakerModelDjangoListObjectField(cls._meta.output_list_type, resolver=cls.list, **kwargs)
 
     class Meta(object):
         serializer_class = SpeakerSerializer

@@ -7,6 +7,7 @@ class MemberSerializer(serializers.ModelSerializer):
         model = Member
 
 class SpeakerSerializer(serializers.ModelSerializer):
+    # define this artificial field ( annotation )
     role_by_summit = serializers.IntegerField(read_only=True)
 
     class Meta:
