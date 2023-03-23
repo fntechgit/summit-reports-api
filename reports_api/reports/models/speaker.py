@@ -61,16 +61,32 @@ class Speaker(models.Model):
         else:
             return ''
 
-    def role(self):
+    def role(self, summit_id=0):
+        role = ''
+        if summit_id:
+            if hasattr(self, 'presentations') and self.presentations is not None and self.presentations.filter(summit_id=summit_id).exists():
+                role = 'Speaker'
+
+            if hasattr(self, 'moderated_presentations') and self.moderated_presentations is not None and self.moderated_presentations.filter(summit_id=summit_id).exists():
+                if role != '':
+                    role = str(role + ' / Moderator')
+                else:
+                    role = 'Moderator'
+
+        return role
+
+    def global_role(self):
         role = ''
         if hasattr(self, 'presentations') and self.presentations is not None and self.presentations.exists():
             role = 'Speaker'
 
-        if hasattr(self, 'moderated_presentations') and self.moderated_presentations is not None and self.moderated_presentations.exists():
+        if hasattr(self,
+                   'moderated_presentations') and self.moderated_presentations is not None and self.moderated_presentations.exists():
             if role != '':
                 role = str(role + ' / Moderator')
             else:
                 role = 'Moderator'
+
 
         return role
 

@@ -589,6 +589,7 @@ class SpeakerNode(DjangoObjectType):
     current_job_title = String()
     current_company = String()
     role = String()
+    role_by_summit = String(summitId=Int())
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
@@ -655,7 +656,10 @@ class SpeakerNode(DjangoObjectType):
         return job_title
 
     def resolve_role(self, info):
-        return self.role()
+        return self.global_role()
+
+    def resolve_role_by_summit(self, info, summitId=0):
+        return self.role(summitId)
 
     def resolve_current_company(self, info):
         company = ''
