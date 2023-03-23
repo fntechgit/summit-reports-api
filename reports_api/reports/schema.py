@@ -11,27 +11,24 @@
  * limitations under the License.
 """
 
-from graphene import Int, ObjectType, Float, String, List, AbstractType, Boolean
-from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, \
-    DjangoObjectField, DjangoFilterPaginateListField, DjangoFilterListField, LimitOffsetGraphqlPagination
-from graphene_django.fields import DjangoListField
 from django.db import models
-
-from reports_api.reports.models import \
-    SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
-    Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
-    Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, \
-    PresentationVideo, Tag, MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType,\
-    Company, SummitOrderExtraQuestionType, ExtraQuestionType
+from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, Q
+from graphene import Int, ObjectType, Float, String, List, Boolean
+from graphene_django.fields import DjangoListField
+from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, \
+    DjangoObjectField, LimitOffsetGraphqlPagination
 
 from reports_api.reports.filters.model_filters import \
     PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter, \
     SummitEventFilter
-
+from reports_api.reports.models import \
+    SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
+    Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
+    Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, \
+    PresentationVideo, Tag, MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, \
+    Company, SummitOrderExtraQuestionType, ExtraQuestionType
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, \
     EventCategorySerializer
-
-from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, CharField, Q
 
 
 class SubqueryCount(Subquery):
@@ -781,6 +778,7 @@ class CustomDjangoListObjectField(DjangoListObjectField):
         list = super().list_resolver(manager, filterset_class, filtering_args, root, info, **kwargs)
         qs = list.results
         # there should be a better way yo get the summit id filter
+        # @see https://docs.graphene-python.org/projects/django/en/latest/queries/#default-queryset
         if 'summit_id' in kwargs:
             summit_id = int(kwargs.get('summit_id'))
             speaker = Presentation.objects.filter(Q(speakers=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
