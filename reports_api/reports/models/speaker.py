@@ -28,7 +28,6 @@ class Speaker(models.Model):
 
     member = models.OneToOneField(Member, on_delete=models.CASCADE, db_column='MemberID', null=True)
 
-
     def __str__(self):
         return self.id
 

@@ -23,7 +23,7 @@ class TokenValidationMiddleware(object):
         self.get_response = get_response
 
     def __call__(self, request):
-        # return self.get_response(request)
+        #return self.get_response(request)
         
         try:
             access_token = TokenValidationMiddleware.get_access_token(request)
@@ -31,6 +31,7 @@ class TokenValidationMiddleware(object):
                 logging.getLogger('django').warning('missing access token')
                 return HttpResponseForbidden("Miissing Access Token")
             # we got an access token on request
+
             token_info = TokenValidationMiddleware.get_token_info(access_token)
             # now check the scope
             if 'scope' in token_info:
