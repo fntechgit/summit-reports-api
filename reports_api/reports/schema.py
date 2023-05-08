@@ -12,7 +12,7 @@
 """
 
 from django.db import models
-from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, Q
+from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, Q, Count, F
 from graphene import Int, ObjectType, Float, String, List, Boolean
 from graphene_django.fields import DjangoListField
 from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, \
@@ -20,15 +20,16 @@ from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, D
 
 from reports_api.reports.filters.model_filters import \
     PresentationFilter, SpeakerFilter, RsvpFilter, EventFeedbackFilter, EventCategoryFilter, TagFilter, MetricFilter, \
-    SummitEventFilter
+    SummitEventFilter, AttendeeFilter
 from reports_api.reports.models import \
     SummitEvent, Presentation, EventCategory, Summit, Speaker, SpeakerAttendance, SpeakerRegistration, \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, \
     PresentationVideo, Tag, MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, \
-    Company, SummitOrderExtraQuestionType, ExtraQuestionType
+    Company, SummitOrderExtraQuestionType, ExtraQuestionType, SummitTicket, SummitAttendee, SummitOrderExtraQuestionAnswer
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, \
-    EventCategorySerializer
+    EventCategorySerializer, AttendeeSerializer, SummitTicketSerializer, TicketTypeSerializer, BadgeSerializer, \
+    BadgeTypeSerializer, BadgeFeatureSerializer, OrderExtraQuestionSerializer, OrderExtraQuestionAnswerSerializer
 
 
 class SubqueryCount(Subquery):
@@ -159,7 +160,7 @@ class SummitNode(DjangoObjectType):
 
     class Meta:
         model = Summit
-        filter_fields = ['id', 'title', 'metrics', 'order_extra_questions']
+        filter_fields = ['id', 'title', 'metrics', 'order_extra_questions', 'ticket_types']
 
 
 class RegistrationNode(DjangoObjectType):
@@ -703,6 +704,52 @@ class EventCategoryNode(DjangoObjectType):
         filter_fields = ['id', 'title', 'summit__id']
 
 
+class SummitTicketNode(DjangoObjectType):
+    type_name = String()
+
+    def resolve_type_name(self, info):
+        return self.type.name
+
+    class Meta:
+        model = SummitTicket
+        filter_fields = ['id', 'type', 'badge']
+
+
+class SummitAttendeeNode(DjangoObjectType):
+    feature_list = String()
+    ticket_type_list = String()
+
+    def resolve_feature_list(self, info):
+        badge_features = self.tickets.annotate(feature_count=Count("badge__features")).filter(
+            feature_count__gt=0).values(features=F("badge__features__name"))
+        badge_type_features = self.tickets.annotate(feature_count=Count("badge__type__features")).filter(
+            feature_count__gt=0).values(features=F("badge__type__features__name"))
+        distinct_features = badge_features.union(badge_type_features).distinct()
+        feat_list = ', '.join(f.get("features") for f in list(distinct_features))
+        return feat_list
+
+    def resolve_ticket_type_list(self, info):
+        types = self.tickets.values("type__name").distinct()
+        type_list = ', '.join(t.get("type__name") for t in types)
+        return type_list
+
+
+    class Meta:
+        model = SummitAttendee
+        filter_fields = ['id', 'first_name', 'surname', 'email']
+
+
+class SummitOrderExtraQuestionAnswerNode(DjangoObjectType):
+    question_id = String()
+
+    def resolve_question_id(self, info):
+        return self.question.id
+
+    class Meta:
+        model = SummitOrderExtraQuestionAnswer
+        filter_fields = ['id', 'value', 'question']
+
+
 # ---------------------------------------------------------------------------------
 
 class CustomDictionary(ObjectType):
@@ -815,6 +862,42 @@ class SpeakerModelType(DjangoSerializerType):
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
+class AttendeeModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = AttendeeSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+class SummitTicketModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = SummitTicketSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+class TicketTypeModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = TicketTypeSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+class BadgeModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = BadgeSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+class BadgeTypeModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = BadgeTypeSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+class BadgeFeatureModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = BadgeFeatureSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
 class RsvpModelType(DjangoSerializerType):
     class Meta(object):
         serializer_class = RsvpSerializer
@@ -827,6 +910,17 @@ class EventCategoryModelType(DjangoSerializerType):
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
 
 
+class ExtraQuestionModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = OrderExtraQuestionSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
+
+class ExtraQuestionAnswerModelType(DjangoSerializerType):
+    class Meta(object):
+        serializer_class = OrderExtraQuestionAnswerSerializer
+        pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")
+
 # ************************************************************************************
 
 
@@ -835,6 +929,7 @@ class Query(ObjectType):
     presentations = DjangoListObjectField(PresentationListType, filterset_class=PresentationFilter)
     presentation = DjangoObjectField(PresentationNode)
     speakers = SpeakerModelType.ListField(filterset_class=SpeakerFilter)
+    attendees = AttendeeModelType.ListField(filterset_class=AttendeeFilter)
     rsvps = RsvpModelType.ListField(filterset_class=RsvpFilter)
     rsvp_template = DjangoObjectField(RsvpTemplateNode)
     feedbacks = DjangoListObjectField(EventFeedbackListType, filterset_class=EventFeedbackFilter)

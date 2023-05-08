@@ -10,9 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 """
-from ..extra_questions.extra_question_answer import ExtraQuestionAnswer
+from reports_api.reports.models.extra_questions.extra_question_answer import ExtraQuestionAnswer
 from django.db import models
-from .summit_attendee import SummitAttendee
+from reports_api.reports.models.registration.summit_attendee import SummitAttendee
 
 
 class SummitOrderExtraQuestionAnswer(ExtraQuestionAnswer):

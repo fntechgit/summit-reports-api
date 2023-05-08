@@ -1,4 +1,4 @@
-from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric, Member
+from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric, SummitAttendee
 import django_filters
 from django.db import models
 
@@ -161,6 +161,55 @@ class SpeakerFilter(django_filters.FilterSet):
 
         return queryTmp
 
+class AttendeeFilter(django_filters.FilterSet):
+    summit_id = django_filters.NumberFilter(field_name='summit__id')
+    ticket_type_id = django_filters.BaseInFilter(field_name='tickets__type__id')
+    feature_id = django_filters.BaseInFilter(method='feature_filter')
+    question = django_filters.CharFilter(method='question_filter')
+    search = django_filters.CharFilter(method='search_filter')
+
+
+    class Meta:
+        model = SummitAttendee
+        fields = ['id', 'first_name', 'surname']
+
+    def feature_filter(self, queryset, name, value):
+        queryset = queryset.filter(
+            models.Q(tickets__badge__features__id__in=value) |
+            models.Q(tickets__badge__type__features__id__in=value)
+        )
+        return queryset.distinct()
+
+    def question_filter(self, queryset, name, value):
+        tuples = value.split('|')
+        query = queryset
+
+        # AND between questions, each tuple filters the query
+        for t in tuples:
+            tuple = t.split(':')
+            question_id = tuple[0]
+            answer_values = tuple[1].split(',')
+
+            if answer_values[0] == 'empty':
+                query = query.exclude(
+                    models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False)
+                )
+            elif answer_values[0] == 'notempty':
+                query = query.filter(models.Q(extra_question_answers__question__id=question_id,
+                                              extra_question_answers__value__isnull=False))
+            else:
+                query = query.filter(models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__in=answer_values))
+
+        query = query.distinct()
+        return query
+
+    def search_filter(self, queryset, name, value):
+        queryset = queryset.filter(
+            models.Q(surname__icontains=value) |
+            models.Q(email__icontains=value) |
+            models.Q(company_name__icontains=value)
+        )
+        return queryset.distinct()
 
 
 class RsvpFilter(django_filters.FilterSet):

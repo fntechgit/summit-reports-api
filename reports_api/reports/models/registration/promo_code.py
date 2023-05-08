@@ -12,8 +12,8 @@
 """
 
 from django.db import models
-from .summit import Summit
-from .speaker import Speaker
+from reports_api.reports.models.summit import Summit
+from reports_api.reports.models.speaker import Speaker
 
 
 class PromoCode(models.Model):

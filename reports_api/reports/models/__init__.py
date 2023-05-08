@@ -24,7 +24,7 @@ from .speaker_registration import SpeakerRegistration
 from .affiliation import Affiliation
 from .abstract_location import AbstractLocation
 from .venue_room import VenueRoom
-from .promo_code import PromoCode, SpeakerPromoCode
+from reports_api.reports.models.registration.promo_code import PromoCode, SpeakerPromoCode
 from .event_feedback import EventFeedback
 from .rsvp.rsvp_template import RsvpTemplate
 from .rsvp.rsvp_question import RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue
@@ -43,8 +43,14 @@ from .metric import Metric
 from .event_metric import EventMetric
 from .sponsor_metric import SponsorMetric
 from .registration.summit_attendee import SummitAttendee
-from .registration.summit_order_extra_question_answer import SummitOrderExtraQuestionAnswer
+from .registration.badge import Badge
+from .registration.badge_feature import BadgeFeature
+from .registration.badge_type import BadgeType
+from .registration.summit_ticket import SummitTicket
+from .registration.ticket_type import TicketType
 from .extra_questions.extra_question_answer import ExtraQuestionAnswer
 from .extra_questions.extra_question_type import ExtraQuestionType
 from .extra_questions.extra_question_type_value import ExtraQuestionTypeValue
 from .extra_questions.summit_order_extra_question_type import SummitOrderExtraQuestionType
+from .extra_questions.summit_order_extra_question_answer import SummitOrderExtraQuestionAnswer
+
