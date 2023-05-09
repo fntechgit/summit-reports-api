@@ -745,9 +745,18 @@ class SummitAttendeeNode(DjangoObjectType):
 
 class SummitOrderExtraQuestionAnswerNode(DjangoObjectType):
     question_id = String()
+    answer_text = String()
 
     def resolve_question_id(self, info):
         return self.question.id
+
+    def resolve_answer_text(self, info):
+        if self.question.values.exists():
+            ans_value = self.question.values.filter(id=self.value).values_list("value", flat=True)
+            return ans_value.first()
+
+        return self.value
+
 
     class Meta:
         model = SummitOrderExtraQuestionAnswer

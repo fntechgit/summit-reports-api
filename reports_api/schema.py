@@ -23,4 +23,3 @@ class Query(reports_api.reports.schema.Query, graphene.ObjectType):
     pass
 
 schema = graphene.Schema(query=Query)
-print(schema._query)
