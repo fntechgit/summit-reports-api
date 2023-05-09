@@ -37,6 +37,14 @@ class SummitAttendee(BaseModel):
     member = models.ForeignKey(
         Member, related_name='attendee_profiles', db_column='MemberID', on_delete=models.CASCADE, null=True)
 
+    def full_name(self):
+        if self.first_name or self.surname:
+            return str(self.first_name + ' ' + self.surname)
+        else:
+            if hasattr(self, 'member') and self.member is not None:
+                return str(self.member.first_name + ' ' + self.member.last_name)
+
+        return 'N/A'
 
     class Meta:
         app_label = 'reports'

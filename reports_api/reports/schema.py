@@ -718,6 +718,7 @@ class SummitTicketNode(DjangoObjectType):
 class SummitAttendeeNode(DjangoObjectType):
     feature_list = String()
     ticket_type_list = String()
+    full_name = String()
 
     def resolve_feature_list(self, info):
         badge_features = self.tickets.annotate(feature_count=Count("badge__features")).filter(
@@ -732,6 +733,9 @@ class SummitAttendeeNode(DjangoObjectType):
         types = self.tickets.values("type__name").distinct()
         type_list = ', '.join(t.get("type__name") for t in types)
         return type_list
+
+    def resolve_full_name(self, info):
+        return self.full_name()
 
 
     class Meta:
