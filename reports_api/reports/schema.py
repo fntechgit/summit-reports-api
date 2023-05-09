@@ -13,6 +13,7 @@
 
 from django.db import models
 from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, Q, Count, F
+from django.db.models.functions import Coalesce
 from graphene import Int, ObjectType, Float, String, List, Boolean
 from graphene_django.fields import DjangoListField
 from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, \
@@ -863,6 +864,22 @@ class SpeakerModelDjangoListObjectField(DjangoListObjectField):
         return list
 
 
+# custom class to inject annotation
+class AttendeeModelDjangoListObjectField(DjangoListObjectField):
+
+    # overloaded method to add the custom annotation for filtering
+    def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
+        list = super().list_resolver(manager, filterset_class, filtering_args, root, info, **kwargs)
+        qs = list.results
+
+        qs = qs.annotate(
+            existing_last_name=Coalesce(F("surname"), F("member__last_name"))
+        )
+
+        list.results = qs
+        return list
+
+
 class SpeakerModelType(DjangoSerializerType):
 
     # override to inject a custom implementation
@@ -876,6 +893,11 @@ class SpeakerModelType(DjangoSerializerType):
 
 
 class AttendeeModelType(DjangoSerializerType):
+    # override to inject a custom implementation
+    @classmethod
+    def ListField(cls, *args, **kwargs):
+        return AttendeeModelDjangoListObjectField(cls._meta.output_list_type, resolver=cls.list, **kwargs)
+
     class Meta(object):
         serializer_class = AttendeeSerializer
         pagination = LimitOffsetGraphqlPagination(default_limit=3000, ordering="id")

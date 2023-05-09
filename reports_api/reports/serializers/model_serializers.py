@@ -63,6 +63,7 @@ class OrderExtraQuestionSerializer(serializers.ModelSerializer):
 class AttendeeSerializer(serializers.ModelSerializer):
     tickets = SummitTicketSerializer(many=True, required=False)
     extra_question_answers = OrderExtraQuestionAnswerSerializer(many=True, required=False)
+    existing_last_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = SummitAttendee

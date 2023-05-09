@@ -38,10 +38,10 @@ class SummitAttendee(BaseModel):
         Member, related_name='attendee_profiles', db_column='MemberID', on_delete=models.CASCADE, null=True)
 
     def full_name(self):
-        if self.first_name or self.surname:
+        if self.first_name and self.surname:
             return str(self.first_name + ' ' + self.surname)
         else:
-            if hasattr(self, 'member') and self.member is not None:
+            if hasattr(self, 'member') and self.member is not None and self.member.first_name and self.member.last_name:
                 return str(self.member.first_name + ' ' + self.member.last_name)
 
         return 'N/A'
