@@ -753,7 +753,7 @@ class SummitOrderExtraQuestionAnswerNode(DjangoObjectType):
 
     def resolve_answer_text(self, info):
         if self.question.values.exists():
-            ans_value = self.question.values.filter(id=self.value).values_list("value", flat=True)
+            ans_value = self.question.values.filter(id=self.value).values_list("label", flat=True)
             return ans_value.first()
 
         return self.value
