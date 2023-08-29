@@ -195,10 +195,15 @@ class AttendeeFilter(django_filters.FilterSet):
                     models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False)
                 )
             elif answer_values[0] == 'notempty':
-                query = query.filter(models.Q(extra_question_answers__question__id=question_id,
-                                              extra_question_answers__value__isnull=False))
+                query = query.filter(
+                    models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False)
+                )
             else:
-                query = query.filter(models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__in=answer_values))
+                query = query.filter(
+                    models.Q(extra_question_answers__question__id=question_id)
+                ).extra(
+                    where=[' OR '.join(map(lambda ans: 'FIND_IN_SET(%s, ExtraQuestionAnswer.value)' % ans, answer_values))]
+                )
 
         query = query.distinct()
         return query

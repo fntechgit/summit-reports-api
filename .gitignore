@@ -106,3 +106,4 @@ venv.bak/
 # php storm
 .idea
 .env.test
+.DS_Store
