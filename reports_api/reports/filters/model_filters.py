@@ -163,7 +163,7 @@ class SpeakerFilter(django_filters.FilterSet):
 
 class AttendeeFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(field_name='summit__id')
-    ticket_type_id = django_filters.BaseInFilter(field_name='tickets__type__id')
+    ticket_type_id = django_filters.BaseInFilter(method='ticket_type_filter')
     feature_id = django_filters.BaseInFilter(method='feature_filter')
     question = django_filters.CharFilter(method='question_filter')
     search = django_filters.CharFilter(method='search_filter')
@@ -172,6 +172,10 @@ class AttendeeFilter(django_filters.FilterSet):
     class Meta:
         model = SummitAttendee
         fields = ['id', 'first_name', 'surname']
+
+    def ticket_type_filter(self, queryset, name, value):
+        queryset = queryset.filter(tickets__type__id__in=value, tickets__is_active=True, tickets__status="Paid")
+        return queryset.distinct()
 
     def feature_filter(self, queryset, name, value):
         queryset = queryset.filter(
