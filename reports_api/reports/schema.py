@@ -731,7 +731,7 @@ class SummitAttendeeNode(DjangoObjectType):
         return feat_list
 
     def resolve_ticket_type_list(self, info):
-        types = self.tickets.values("type__name").distinct()
+        types = self.tickets.filter(is_active=True, status="Paid").values("type__name").distinct()
         type_list = ', '.join(t.get("type__name") for t in types)
         return type_list
 
