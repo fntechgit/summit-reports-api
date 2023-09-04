@@ -1,6 +1,7 @@
 from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric, SummitAttendee
 import django_filters
 from django.db import models
+from functools import reduce
 
 class SubQueryCount(models.Subquery):
     output_field = models.IntegerField()
@@ -165,8 +166,8 @@ class AttendeeFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(field_name='summit__id')
     ticket_type_id = django_filters.BaseInFilter(method='ticket_type_filter')
     feature_id = django_filters.BaseInFilter(method='feature_filter')
-    question = django_filters.CharFilter(method='question_filter')
     search = django_filters.CharFilter(method='search_filter')
+    question = django_filters.CharFilter(method='question_filter')
 
 
     class Meta:
@@ -186,31 +187,38 @@ class AttendeeFilter(django_filters.FilterSet):
 
     def question_filter(self, queryset, name, value):
         tuples = value.split('|')
-        query = queryset
+        isAny = True if tuples.pop() == 'ANY' else False
+        query_answers = []
 
-        # AND between questions, each tuple filters the query
+        # filter between questions, each tuple filters the query
         for t in tuples:
             tuple = t.split(':')
             question_id = tuple[0]
             answer_values = tuple[1].split(',')
 
+            # This empty query is not working
             if answer_values[0] == 'empty':
-                query = query.exclude(
-                    models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False)
+                query_answers.append(
+                    queryset.exclude(models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False))
                 )
             elif answer_values[0] == 'notempty':
-                query = query.filter(
-                    models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False)
+                query_answers.append(
+                    queryset.filter(models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False))
                 )
             else:
-                query = query.filter(
-                    models.Q(extra_question_answers__question__id=question_id)
-                ).extra(
-                    where=[' OR '.join(map(lambda ans: 'FIND_IN_SET(%s, ExtraQuestionAnswer.value)' % ans, answer_values))]
-                )
+                for ans in answer_values:
+                    query_answers.append(
+                        queryset.filter(models.Q(extra_question_answers__question__id=question_id,extra_question_answers__value__icontains=ans))
+                    )
 
-        query = query.distinct()
-        return query
+
+        # for qa in query_answers:
+        #     print(qa.query)
+
+        if isAny:
+            return reduce(lambda x, y: x | y, query_answers).distinct()
+        else:
+            return reduce(lambda x, y: x & y, query_answers).distinct()
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
