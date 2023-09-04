@@ -187,7 +187,7 @@ class AttendeeFilter(django_filters.FilterSet):
 
     def question_filter(self, queryset, name, value):
         tuples = value.split('|')
-        isAny = True if tuples.pop() == 'ANY' else False
+        isAny = True if tuples.pop() == 'any' else False
         query_answers = []
 
         # filter between questions, each tuple filters the query
