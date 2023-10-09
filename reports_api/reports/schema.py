@@ -686,8 +686,10 @@ class SpeakerNode(DjangoObjectType):
 
     def resolve_paid_tickets(self, info, summitId=0):
         attendee = self.member.attendee_profiles.filter(summit__id=summitId).first()
-        return attendee.tickets.filter(status='Paid').count() if attendee else 0
+        if attendee:
+            return 'Yes' if attendee.tickets.filter(status='Paid').count() > 0 else 'No'
 
+        return 'No'
     class Meta(object):
         model = Speaker
 
