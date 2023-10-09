@@ -598,6 +598,7 @@ class SpeakerNode(DjangoObjectType):
     current_company = String()
     role = String()
     role_by_summit = String(summitId=Int())
+    paid_tickets = String(summitId=Int())
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
@@ -682,6 +683,10 @@ class SpeakerNode(DjangoObjectType):
             pass
 
         return company
+
+    def resolve_paid_tickets(self, info, summitId=0):
+        attendee = self.member.attendee_profiles.filter(summit__id=summitId).first()
+        return attendee.tickets.filter(status='Paid').count() if attendee else 0
 
     class Meta(object):
         model = Speaker
@@ -848,6 +853,9 @@ class SpeakerModelDjangoListObjectField(DjangoListObjectField):
                 # if we provided a summit id param ( filtering ) then perform the subqueries to allow to add annotations
                 speaker = Presentation.objects.filter(Q(speakers=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
                 moderated = Presentation.objects.filter(Q(moderator=OuterRef('pk')) & Q(summit__id=summit_id)).values('pk')
+                attendee = SummitAttendee.objects.filter(Q(member=OuterRef('member_id')) & Q(summit__id=summit_id)).values('pk')
+
+                attendeePaidTickets = SummitTicket.objects.filter(Q(owner=OuterRef('attendee')) & Q(status='Paid'))
 
                 qs = qs.annotate(
                     moderate_count=SubqueryCount(moderated),
@@ -858,7 +866,9 @@ class SpeakerModelDjangoListObjectField(DjangoListObjectField):
                         When(Q(speaker_count=0) & Q(moderate_count__gt=0), then=1),
                         default=0,
                         output_field=IntegerField(),
-                    )
+                    ),
+                    attendee=Subquery(attendee),
+                    paid_tickets=SubqueryCount(attendeePaidTickets)
                 )
 
         list.results = qs

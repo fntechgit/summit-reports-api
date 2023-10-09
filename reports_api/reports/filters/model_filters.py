@@ -101,6 +101,7 @@ class SpeakerFilter(django_filters.FilterSet):
     confirmed_for_summit = django_filters.CharFilter(method='confirmed_filter')
     checkedin_for_summit = django_filters.CharFilter(method='checked_filter')
     registered_for_summit = django_filters.CharFilter(method='registered_filter')
+    paid_tickets = django_filters.NumberFilter(method='paid_tickets_filter')
     attending_media_for_summit = django_filters.CharFilter(method='attending_media_filter')
 
     class Meta:
@@ -139,6 +140,9 @@ class SpeakerFilter(django_filters.FilterSet):
         summit_id = values[0];
         checked = values[1] == 'true'
         return queryset.filter(attendances__summit__id=summit_id, attendances__checked_in=checked).distinct()
+
+    def paid_tickets_filter(self, queryset, name, value):
+        return queryset.filter(member__attendee_profiles__summit__id=value, member__attendee_profiles__tickets__status='Paid').distinct()
 
     def attending_media_filter(self, queryset, name, value):
         values = value.split(',');
