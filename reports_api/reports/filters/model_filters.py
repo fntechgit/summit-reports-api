@@ -101,7 +101,7 @@ class SpeakerFilter(django_filters.FilterSet):
     confirmed_for_summit = django_filters.CharFilter(method='confirmed_filter')
     checkedin_for_summit = django_filters.CharFilter(method='checked_filter')
     registered_for_summit = django_filters.CharFilter(method='registered_filter')
-    paid_tickets_for_summit = django_filters.CharFilter(method='paid_tickets_filter')
+    paidtickets_for_summit = django_filters.CharFilter(method='paid_tickets_filter')
     attending_media_for_summit = django_filters.CharFilter(method='attending_media_filter')
 
     class Meta:
