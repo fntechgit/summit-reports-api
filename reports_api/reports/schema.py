@@ -648,7 +648,7 @@ class SpeakerNode(DjangoObjectType):
         except:
             pass
 
-        return ', '.join(x for x in emails)
+        return ', '.join(x for x in list(set(emails)))
 
     def resolve_current_job_title(self, info):
         job_title = ''
@@ -685,9 +685,15 @@ class SpeakerNode(DjangoObjectType):
         return company
 
     def resolve_paid_tickets(self, info, summitId=0):
-        attendee = self.member.attendee_profiles.filter(summit__id=summitId).first()
+        attendee = None
+
+        if self.member:
+            attendee = self.member.attendee_profiles.filter(summit__id=summitId).first()
+        elif self.registration:
+            attendee = SummitAttendee.objects.filter(summit_id=summitId, email=self.registration.email).first()
+
         if attendee:
-            return 'Yes' if attendee.tickets.filter(status='Paid').count() > 0 else 'No'
+            return 'Yes' if attendee.tickets.filter(status='Paid', is_active=True).count() > 0 else 'No'
 
         return 'No'
     class Meta(object):

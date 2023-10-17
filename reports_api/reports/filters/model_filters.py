@@ -155,9 +155,10 @@ class SpeakerFilter(django_filters.FilterSet):
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(last_name=value) |
-            models.Q(member__email=value) |
-            models.Q(presentations__title__icontains=value)
+            models.Q(last_name__icontains=value) |
+            models.Q(member__email__icontains=value) |
+            models.Q(presentations__title__icontains=value) |
+            models.Q(registration__email__icontains=value)
         )
         return queryset.distinct()
 
