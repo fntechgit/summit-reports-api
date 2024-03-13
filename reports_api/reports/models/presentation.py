@@ -14,6 +14,7 @@
 from django.db import models
 from .speaker import Speaker, Member
 from .summit_event import SummitEvent
+from .selection_plan import SelectionPlan
 
 
 class Presentation(SummitEvent):
@@ -31,6 +32,30 @@ class Presentation(SummitEvent):
     moderator = models.ForeignKey(
         Speaker, related_name='moderated_presentations', db_column='ModeratorID', on_delete=models.CASCADE, null=True)
 
+    selection_plan = models.ForeignKey(
+        SelectionPlan, related_name='presentations', db_column='SelectionPlanID', on_delete=models.CASCADE, null=True)
+
+    @property
+    def submission_status(self):
+        status = ''
+        if self.status == 'Received' and self.published == 1:
+            status = 'Accepted'
+        elif self.status == 'Received' and self.published == 0:
+            status = 'Received'
+        elif self.published == 0:
+            status = 'NonReceived'
+
+        return status
+
+    @property
+    def is_accepted(self):
+        return self.selected_presentations.filter(
+            order__isnull=False,
+            order__lte=self.category.session_count,
+            list__list_type='Group',
+            list__list_class='Session',
+            list__category__id=self.category.id
+        ).exists() or self.published
 
     def __str__(self):
         return self.id
