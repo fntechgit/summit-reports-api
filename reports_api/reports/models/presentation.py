@@ -26,8 +26,8 @@ class Presentation(SummitEvent):
     summitevent_ptr = models.OneToOneField(
         SummitEvent, on_delete=models.CASCADE, parent_link=True, db_column='ID')
 
-    speakers = models.ManyToManyField(Speaker, related_name='presentations', through='PresentationSpeakers',
-                                       through_fields=('presentation_id', 'speaker_id'))
+    speakers = models.ManyToManyField(
+        Speaker, related_name='presentations', through='PresentationSpeakers',through_fields=('presentation_id', 'speaker_id'))
 
     moderator = models.ForeignKey(
         Speaker, related_name='moderated_presentations', db_column='ModeratorID', on_delete=models.CASCADE, null=True)

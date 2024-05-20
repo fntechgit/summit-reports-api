@@ -1,4 +1,4 @@
-from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric, SummitAttendee
+from reports_api.reports.models import SummitEvent, Speaker, Presentation, SelectedPresentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric, SummitAttendee
 import django_filters
 from django.db import models
 from functools import reduce
@@ -124,9 +124,36 @@ class SpeakerFilter(django_filters.FilterSet):
         ).distinct()
 
     def has_accepted_events_from_summit_filter(self, queryset, name, value):
-        return queryset.filter(
-            presentations__summit__id=value, presentations__is_accepted=True
-        ).distinct()
+        presentation_category = EventCategory.objects\
+            .filter(id=models.OuterRef(models.OuterRef('category__id')))
+
+        selected_presentations = SelectedPresentation.objects\
+            .filter(presentation__id=models.OuterRef('id'))\
+            .filter(
+                models.Q(
+                    order__isnull=False,
+                    order__lte=models.Subquery(presentation_category.first().values('session_count')),
+                    list__list_type='Group',
+                    list__list_class='Session',
+                    list__category__id=models.Subquery(presentation_category.first().values('id'))
+                )
+            )
+
+        accepted_presentations = Presentation.objects\
+            .filter(speakers__id=models.OuterRef('id'), summit__id=value)\
+            .filter(
+                models.Q(published=True) |
+                models.Exists(selected_presentations)
+            )
+
+        query = queryset\
+            .annotate(has_accepted_presentations=models.Exists(accepted_presentations))\
+            .filter(presentations__summit__id=value, has_accepted_presentations=True)\
+            .distinct()
+
+        print(query.query)
+
+        return query
 
     def has_events_on_category_filter(self, queryset, name, value):
         return queryset.filter(presentations__category__id=value).distinct()
