@@ -123,6 +123,26 @@ class SpeakerFilter(django_filters.FilterSet):
             models.Q(moderated_presentations__summit__id=value, moderated_presentations__published=True)
         ).distinct()
 
+
+    # {
+    #   reportData: speakers(summitId: 55, selectionPlan:"42", isAccepted:55) {
+    #     results: results(limit: 5) {
+    #       id
+    #       member {
+    #         id
+    #       }
+    #       title
+    #       fullname: fullName
+    #       rolebysummit: roleBySummit(summitId: 55)
+    #       paidtickets: paidTickets(summitId: 55)
+    #       emails
+    #       presentationtitles: presentationTitles (summitId:55)
+    #     }
+    #     totalCount
+    #   }
+    # }
+
+    
     def has_accepted_events_from_summit_filter(self, queryset, name, value):
         presentation_category = EventCategory.objects\
             .filter(id=models.OuterRef(models.OuterRef('category__id')))
@@ -130,13 +150,11 @@ class SpeakerFilter(django_filters.FilterSet):
         selected_presentations = SelectedPresentation.objects\
             .filter(presentation__id=models.OuterRef('id'))\
             .filter(
-                models.Q(
-                    order__isnull=False,
-                    order__lte=models.Subquery(presentation_category.first().values('session_count')),
-                    list__list_type='Group',
-                    list__list_class='Session',
-                    list__category__id=models.Subquery(presentation_category.first().values('id'))
-                )
+                models.Q(order__isnull=False) &
+                models.Q(order__lte=models.Subquery(presentation_category.values('session_count'))) &
+                models.Q(list__list_type='Group') &
+                models.Q(list__list_class='Session') &
+                models.Q(list__category__id=models.Subquery(presentation_category.values('id')))
             )
 
         accepted_presentations = Presentation.objects\
