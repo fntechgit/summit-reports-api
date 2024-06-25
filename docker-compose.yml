@@ -1,0 +1,59 @@
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: summit-report-api
+    command: python manage.py runserver 0.0.0.0:8000
+    container_name: summit-report-api
+    restart: unless-stopped
+    volumes:
+      - ./:/app
+      - ./docker-compose/db.sqlite3:/app/db.sqlite3
+    networks:
+      - summit-report-api-local-net
+    ports:
+      - "8003:8003"
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+  redis:
+    image: redis:latest
+    restart: always
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    ports:
+      - ${REDIS_PORT}
+    volumes:
+      - /tmp/redis:/root/redis
+      - ./docker-compose/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - summit-report-api-local-net
+    env_file: ./.env
+  db:
+    image: mysql:8.0
+    container_name: summit-report-api-db-local
+    command: --default-authentication-plugin=mysql_native_password --sql_mode=NO_ENGINE_SUBSTITUTION
+    restart: unless-stopped
+    ports:
+      - "33006:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_OPENSTACK_NAME}
+      MYSQL_PASSWORD: ${DB_OPENSTACK_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_OPENSTACK_PASSWORD}
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+    volumes:
+      - /tmp/mysql/${DB_OPENSTACK_NAME}:/var/lib/mysql
+      - ./docker-compose/mysql:/docker-entrypoint-initdb.d
+    networks:
+      - summit-report-api-local-net
+    env_file: ./.env
+networks:
+  summit-report-api-local-net:
+    driver: bridge
