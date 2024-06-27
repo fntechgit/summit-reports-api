@@ -29,7 +29,7 @@ class TokenValidationMiddleware(object):
             access_token = TokenValidationMiddleware.get_access_token(request)
             if access_token is None:
                 logging.getLogger('django').warning('missing access token')
-                return HttpResponseForbidden("Miissing Access Token")
+                return HttpResponseForbidden("Missing Access Token")
             # we got an access token on request
 
             token_info = TokenValidationMiddleware.get_token_info(access_token)
