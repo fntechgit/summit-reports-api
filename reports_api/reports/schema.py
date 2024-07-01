@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 """
-
+import graphene
 from django.db import models
 from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, Q, Count, F
 from django.db.models.functions import Coalesce
@@ -153,7 +153,7 @@ class OrganizationNode(DjangoObjectType):
 
 
 class SummitNode(DjangoObjectType):
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = graphene.List(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = '{type}'".format(type=metricType) if metricType else ''
@@ -201,7 +201,7 @@ class LocationNode(DjangoObjectType):
 
 
 class VenueRoomNode(DjangoObjectType):
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = graphene.List(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_unique_metrics(self, info, metricType='ROOM', metricSubType='', fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = '{type}' AND MetE.SummitVenueRoomID = {id}".format(type=metricType, id=self.id) if metricType else ''
@@ -367,7 +367,7 @@ class EventMetricNode(DjangoObjectType):
 
 class SponsorNode(DjangoObjectType):
     company_name = String()
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = graphene.List(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_unique_metrics(self, info, metricType='', fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = 'SPONSOR' AND MetS.SponsorID = {id}".format(id=self.id)
@@ -415,7 +415,7 @@ class SummitEventNode(DjangoObjectType):
     speaker_count = Int()
     attendee_count = Int()
     unique_metric_count = Int()
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = graphene.List(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_speaker_count(self, info):
         return self.presentation.speakers.count() if hasattr(self,
@@ -458,7 +458,7 @@ class PresentationNode(DjangoObjectType):
     all_media_uploads = String()
     media_upload_videos = String()
     media_upload_slides = String()
-    unique_metrics = DjangoListField(String)
+    unique_metrics = graphene.List(String)
     unique_metric_count = Int()
 
     def resolve_speaker_count(self, info):
@@ -587,8 +587,8 @@ class PresentationNode(DjangoObjectType):
 
 
 class SpeakerNode(DjangoObjectType):
-    presentations = DjangoListField(PresentationNode, summitId=Int())
-    presentation_count = Int()
+    presentations = graphene.List(PresentationNode, summitId=Int())
+    presentation_count = Int(summitId=Int())
     presentation_titles = String(summitId=Int())
     feedback_count = Int(summitId=Int())
     feedback_avg = Float(summitId=Int())
@@ -603,8 +603,8 @@ class SpeakerNode(DjangoObjectType):
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
 
-    def resolve_presentation_count(self, info):
-        return self.presentations.count()
+    def resolve_presentation_count(self, info, summitId=0):
+        return self.presentations.filter(summit_id=summitId).count()
 
     def resolve_presentation_titles(self, info, summitId=0):
         presentations = list(self.presentations.filter(summit_id=summitId).values("title"))

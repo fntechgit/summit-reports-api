@@ -16,6 +16,7 @@ from .event_type import EventType
 from .event_category import EventCategory
 from .member import Member
 from .presentation import Presentation
+from .selected_presentation import SelectedPresentation
 from .speaker import Speaker
 from .summit import Summit
 from .organization import Organization
