@@ -51,7 +51,7 @@ GRAPHENE = {
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'reports_api.authentication.TokenValidationMiddleware',
+    #'reports_api.authentication.TokenValidationMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

@@ -26,10 +26,12 @@ from reports_api.reports.models import \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, \
     PresentationVideo, Tag, MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, \
-    Company, SummitOrderExtraQuestionType, ExtraQuestionType, SummitTicket, SummitAttendee, SummitOrderExtraQuestionAnswer
+    Company, SummitOrderExtraQuestionType, ExtraQuestionType, SummitTicket, SummitAttendee, \
+    SummitOrderExtraQuestionAnswer, SelectedPresentation
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, \
     EventCategorySerializer, AttendeeSerializer, SummitTicketSerializer, TicketTypeSerializer, BadgeSerializer, \
     BadgeTypeSerializer, BadgeFeatureSerializer, OrderExtraQuestionSerializer, OrderExtraQuestionAnswerSerializer
+from .utils.custom_dictionary import CustomDictionary
 
 
 class SubqueryCount(Subquery):
@@ -584,6 +586,9 @@ class PresentationNode(DjangoObjectType):
     class Meta:
         model = Presentation
 
+class StatusDic(ObjectType):
+    presentation_id = String()
+    status = String()
 
 class SpeakerNode(DjangoObjectType):
     presentations = List(PresentationNode, summitId=Int())
@@ -598,6 +603,9 @@ class SpeakerNode(DjangoObjectType):
     role = String()
     role_by_summit = String(summitId=Int())
     paid_tickets = String(summitId=Int())
+    submission_plan = String(summitId=Int())
+    submission_status = List(StatusDic, summitId=Int())
+    selection_status = List(StatusDic, summitId=Int())
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
@@ -695,6 +703,29 @@ class SpeakerNode(DjangoObjectType):
             return 'Yes' if attendee.tickets.filter(status='Paid', is_active=True).count() > 0 else 'No'
 
         return 'No'
+
+    def resolve_submission_plan(self, info, summitId):
+        presentations = list(self.presentations.filter(summit_id=summitId).values("title"))
+        return ' || '.join(x.get("title") for x in presentations)
+
+    def resolve_submission_status(self, info, summitId):
+        results = []
+        presentations = self.presentations.filter(summit_id=summitId)
+        for presentation in presentations:
+            results.append(StatusDic(presentation.id, presentation.submission_status))
+
+        return results
+
+    def resolve_selection_status(self, info, summitId):
+        results = []
+        presentations = self.presentations.filter(summit_id=summitId)
+        for presentation in presentations:
+            selected_presentation = SelectedPresentation.objects.filter(presentation__id=presentation.id).first()
+            if selected_presentation:
+                results.append(StatusDic(presentation.id, selected_presentation.selection_status))
+
+        return results
+
     class Meta(object):
         model = Speaker
 
@@ -778,11 +809,6 @@ class SummitOrderExtraQuestionAnswerNode(DjangoObjectType):
 
 
 # ---------------------------------------------------------------------------------
-
-class CustomDictionary(ObjectType):
-    key = String()
-    value = String()
-
 
 class SummitEventListType(DjangoListObjectType):
     class Meta:

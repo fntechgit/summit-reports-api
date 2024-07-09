@@ -20,6 +20,7 @@ class EventCategory(models.Model):
     title = models.TextField(db_column='Title')
     code = models.TextField(db_column='Code')
     session_count = models.IntegerField(db_column='SessionCount', default=0)
+    lightning_count = models.IntegerField(db_column='LightningCount', default=0)
 
     summit = models.ForeignKey(
         Summit, related_name='categories', db_column='SummitID', on_delete=models.CASCADE)

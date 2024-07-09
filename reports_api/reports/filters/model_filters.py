@@ -1,4 +1,5 @@
-from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric, SummitAttendee
+from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, \
+    EventCategory, Tag, Metric, SummitAttendee
 import django_filters
 from django.db import models
 from functools import reduce
@@ -103,6 +104,9 @@ class SpeakerFilter(django_filters.FilterSet):
     registered_for_summit = django_filters.CharFilter(method='registered_filter')
     paidtickets_for_summit = django_filters.CharFilter(method='paid_tickets_filter')
     attending_media_for_summit = django_filters.CharFilter(method='attending_media_filter')
+    submission_plan = django_filters.CharFilter(method='submission_plan_filter')
+    submission_status = django_filters.CharFilter(method='submission_status_filter')
+    selection_status = django_filters.CharFilter(method='selection_status_filter')
 
     class Meta:
         model = Speaker
@@ -124,20 +128,20 @@ class SpeakerFilter(django_filters.FilterSet):
         return queryset.filter(presentations__category__id=value).distinct()
 
     def confirmed_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         confirmed = values[1] == 'true'
         return queryset.filter(attendances__summit__id=summit_id, attendances__confirmed=confirmed).distinct()
 
     def registered_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         registered = values[1] == 'true'
         return queryset.filter(attendances__summit__id=summit_id, attendances__registered=registered).distinct()
 
     def checked_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         checked = values[1] == 'true'
         return queryset.filter(attendances__summit__id=summit_id, attendances__checked_in=checked).distinct()
 
@@ -148,8 +152,8 @@ class SpeakerFilter(django_filters.FilterSet):
         return queryset.filter(member__attendee_profiles__summit__id=summit_id, member__attendee_profiles__tickets__status='Paid').distinct()
 
     def attending_media_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         attending = values[1] == 'true'
         return queryset.filter(presentations__summit__id=summit_id, presentations__attending_media=attending).distinct()
 
@@ -169,6 +173,42 @@ class SpeakerFilter(django_filters.FilterSet):
         queryTmp = queryTmp.annotate(rate=SubQueryAvg(feedbacks, field="rate"))
 
         return queryTmp
+
+    def submission_plan_filter(self, queryset, name, value):
+        return queryset.filter(
+            models.Q(presentations__title__icontains=value)
+        ).distinct()
+
+    def submission_status_filter(self, queryset, name, value):
+        match value:
+            case 'Accepted':
+                return queryset.filter(models.Q(presentations__status='Received') &
+                                   models.Q(presentations__published=1))
+            case 'Received':
+                return queryset.filter(models.Q(presentations__status='Received') &
+                                   models.Q(presentations__published=0))
+            case 'NonReceived':
+                return queryset.filter(~models.Q(presentations__status='Received') &
+                                   models.Q(presentations__published=0))
+            case _:
+                return Speaker.objects.none()
+
+    def selection_status_filter(self, queryset, name, value):
+        match value:
+            # case 'selected':
+            #     return queryset.filter(models.Q(selected_presentations__list__list_type='Group'))
+            # case 'accepted':
+            #     return Speaker.objects.none()
+            # case 'rejected':
+            #     return Speaker.objects.none()
+            # case 'alternate':
+            #     return Speaker.objects.none()
+            # case 'lightning-accepted':
+            #     return Speaker.objects.none()
+            # case 'lightning-alternate':
+            #     return Speaker.objects.none()
+            case _:
+                return Speaker.objects.none()
 
 class AttendeeFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(field_name='summit__id')
