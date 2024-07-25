@@ -12,6 +12,8 @@
 """
 
 from django.db import models
+
+from .constants import SelectionStatus, PresentationListType, PresentationListClass
 from .presentation import Presentation
 from .member import Member
 from .selected_presentation_list import SelectedPresentationList
@@ -39,31 +41,23 @@ class SelectedPresentation(models.Model):
             return ''
 
         category = self.list.category
-        if self.list.list_type == 'Group' and self.presentation.category == category:
-            return 'selected'
 
-        if (self.order <= category.session_count and self.list.list_type == 'Group' and
-              self.list.list_class == 'Session'):
-            return 'accepted'
+        if self.list.list_class == 'Lightning' and self.list.list_type == PresentationListType.GROUP and self.presentation.category == category:
+            return SelectionStatus.LIGHTNING_ACCEPTED if self.order <= category.lightning_count else SelectionStatus.LIGHTNING_ALTERNATE
 
         if (not self.presentation.published and
-                not SelectedPresentation.objects.filter(
-                    list__list_type='Group', list__list_class='Session', collection='selected').exists()):
-            return 'rejected'
+                (self.list.list_type != PresentationListType.GROUP or
+                 self.list.list_class != PresentationListClass.SESSION or
+                 self.collection != 'selected')):
+            return SelectionStatus.REJECTED
 
-        if (self.order > category.session_count and self.list.list_type == 'Group' and
-              self.list.list_class == 'Session' and self.presentation.category == category):
-            return 'alternate'
+        if self.list.list_type == PresentationListType.GROUP and self.presentation.category == category:
+            if self.list.list_class == PresentationListClass.SESSION or self.presentation.published:
+                return SelectionStatus.ACCEPTED if self.order <= category.session_count else SelectionStatus.ALTERNATE
 
-        if (self.order <= category.lightning_count and self.list.list_type == 'Group' and
-              self.list.list_class == 'Lightning' and self.presentation.category == category):
-            return 'lightning-accepted'
+            return SelectionStatus.SELECTED
 
-        if (self.order > category.lightning_count and self.list.list_type == 'Group' and
-              self.list.list_class == 'Lightning' and self.presentation.category == category):
-            return 'lightning-alternate'
-
-        return ''
+        return SelectionStatus.ALTERNATE
 
     def __str__(self):
         return self.id

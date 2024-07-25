@@ -93,6 +93,9 @@ DATABASES = {
         'PASSWORD': os.getenv("DB_OPENSTACK_PASSWORD"),
         'HOST': os.getenv("DB_OPENSTACK_HOST"),
         'PORT': os.getenv("DB_OPENSTACK_PORT"),
+        'TEST': {
+            'MIRROR': 'openstack_db',
+        },
     }
 }
 

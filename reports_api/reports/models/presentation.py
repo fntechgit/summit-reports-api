@@ -12,6 +12,8 @@
 """
 
 from django.db import models
+
+from .constants import SubmissionStatus, PresentationStatus
 from .speaker import Speaker, Member
 from .summit_event import SummitEvent
 from .selection_plan import SelectionPlan
@@ -37,12 +39,12 @@ class Presentation(SummitEvent):
     @property
     def submission_status(self):
         status = ''
-        if self.status == 'Received' and self.published == 1:
-            status = 'Accepted'
-        elif self.status == 'Received' and self.published == 0:
-            status = 'Received'
+        if self.status == PresentationStatus.RECEIVED and self.published == 1:
+            status = SubmissionStatus.ACCEPTED
+        elif self.status == PresentationStatus.RECEIVED and self.published == 0:
+            status = SubmissionStatus.RECEIVED
         elif self.published == 0:
-            status = 'NonReceived'
+            status = SubmissionStatus.NON_RECEIVED
 
         return status
 
