@@ -12,6 +12,10 @@
 """
 
 from django.db import models
+from django.db.models import Q
+
+from .constants import SubmissionStatus, PresentationStatus, PresentationListType, SelectionStatus, \
+    PresentationListClass, SelectedPresentationCollection
 from .speaker import Speaker, Member
 from .summit_event import SummitEvent
 from .selection_plan import SelectionPlan
@@ -37,22 +41,45 @@ class Presentation(SummitEvent):
     @property
     def submission_status(self):
         status = ''
-        if self.status == 'Received' and self.published == 1:
-            status = 'Accepted'
-        elif self.status == 'Received' and self.published == 0:
-            status = 'Received'
+        if self.status == PresentationStatus.RECEIVED and self.published == 1:
+            status = SubmissionStatus.ACCEPTED
+        elif self.status == PresentationStatus.RECEIVED and self.published == 0:
+            status = SubmissionStatus.RECEIVED
         elif self.published == 0:
-            status = 'NonReceived'
+            status = SubmissionStatus.NON_RECEIVED
 
         return status
+
+    @property
+    def selection_status(self):
+        if self.published:
+            return SelectionStatus.ACCEPTED
+
+        selected_presentations = self.selected_presentations.filter(
+            collection=SelectedPresentationCollection.SELECTED,
+            list__list_type=PresentationListType.GROUP,
+            list__list_class=PresentationListClass.SESSION)
+
+        if selected_presentations.count() > 1:
+            return ''
+
+        if selected_presentations.count() == 0:
+            return SelectionStatus.REJECTED
+
+        selected_presentation = selected_presentations.first()
+
+        if selected_presentation.order <= selected_presentation.list.category.session_count:
+            return SelectionStatus.ACCEPTED
+
+        return SelectionStatus.ALTERNATE
 
     @property
     def is_accepted(self):
         return self.selected_presentations.filter(
             order__isnull=False,
             order__lte=self.category.session_count,
-            list__list_type='Group',
-            list__list_class='Session',
+            list__list_type=PresentationListType.GROUP,
+            list__list_class=PresentationListClass.SESSION,
             list__category__id=self.category.id
         ).exists() or self.published
 

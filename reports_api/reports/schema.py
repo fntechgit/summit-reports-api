@@ -586,9 +586,19 @@ class PresentationNode(DjangoObjectType):
     class Meta:
         model = Presentation
 
-class StatusDic(ObjectType):
+class StatusType(ObjectType):
     presentation_id = String()
     status = String()
+    track_id = String()
+    track = String()
+
+    def __init__(self, presentation_id, status, track_id, track, **kwargs):
+        super().__init__(**kwargs)
+        self.presentation_id = presentation_id
+        self.status = status
+        self.track_id = track_id
+        self.track = track
+
 
 class SpeakerNode(DjangoObjectType):
     presentations = List(PresentationNode, summitId=Int())
@@ -603,9 +613,10 @@ class SpeakerNode(DjangoObjectType):
     role = String()
     role_by_summit = String(summitId=Int())
     paid_tickets = String(summitId=Int())
-    submission_plan = String(summitId=Int())
-    submission_status = List(StatusDic, summitId=Int())
-    selection_status = List(StatusDic, summitId=Int())
+    selection_plan = String(summitId=Int())
+    submission_status = List(StatusType, summitId=Int())
+    selection_status = List(StatusType, summitId=Int())
+    tracks = String(summitId=Int())
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
@@ -704,27 +715,54 @@ class SpeakerNode(DjangoObjectType):
 
         return 'No'
 
-    def resolve_submission_plan(self, info, summitId):
-        presentations = list(self.presentations.filter(summit_id=summitId).values("title"))
-        return ' || '.join(x.get("title") for x in presentations)
+    def resolve_selection_plan(self, info, summitId):
+        selection_plan_names = []
+        seen_ids = set()
+        presentations = self.presentations.filter(summit_id=summitId)
+        for presentation in presentations:
+            if not presentation.selection_plan is None and presentation.selection_plan_id not in seen_ids:
+                seen_ids.add(presentation.selection_plan_id)
+                selection_plan_names.append(presentation.selection_plan.name)
+
+        return ' || '.join(x for x in selection_plan_names)
 
     def resolve_submission_status(self, info, summitId):
         results = []
+        seen_ids_and_statuses = set()
         presentations = self.presentations.filter(summit_id=summitId)
         for presentation in presentations:
-            results.append(StatusDic(presentation.id, presentation.submission_status))
+            if not presentation.submission_status:
+                continue
+            id_status_pair = (presentation.id, presentation.submission_status)
+            if id_status_pair not in seen_ids_and_statuses:
+                seen_ids_and_statuses.add(id_status_pair)
+                results.append(StatusType(presentation.id,
+                                          presentation.submission_status,
+                                          presentation.category.id,
+                                          presentation.category.title))
 
         return results
 
-    def resolve_selection_status(self, info, summitId):
+    def resolve_selection_status(self, info, summitId, **kwargs):
         results = []
+        seen_ids_and_statuses = set()
         presentations = self.presentations.filter(summit_id=summitId)
         for presentation in presentations:
-            selected_presentation = SelectedPresentation.objects.filter(presentation__id=presentation.id).first()
-            if selected_presentation:
-                results.append(StatusDic(presentation.id, selected_presentation.selection_status))
-
+            if not presentation.selection_status:
+                continue
+            id_status_pair = (presentation.id, presentation.selection_status)
+            if id_status_pair not in seen_ids_and_statuses:
+                seen_ids_and_statuses.add(id_status_pair)
+                results.append(StatusType(presentation.id,
+                                                   presentation.selection_status,
+                                                   presentation.category.id,
+                                                   presentation.category.title))
         return results
+
+    def resolve_tracks(self, info, summitId):
+        category_titles = list(self.presentations.filter(summit_id=summitId).values("category__title"))
+        unique_titles = set(x.get("category__title") for x in category_titles)
+        return ' || '.join(unique_titles)
 
     class Meta(object):
         model = Speaker

@@ -17,7 +17,6 @@ from .summit import Summit
 
 class SelectionPlan(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)
-    type = models.TextField(db_column='Type')
     class_name = models.TextField(db_column='ClassName', default='')
     name = models.TextField(db_column='Name', default='')
     enabled = models.BooleanField(db_column='Enabled', default='')

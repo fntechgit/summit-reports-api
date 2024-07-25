@@ -51,7 +51,7 @@ GRAPHENE = {
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    #'reports_api.authentication.TokenValidationMiddleware',
+    'reports_api.authentication.TokenValidationMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -93,6 +93,9 @@ DATABASES = {
         'PASSWORD': os.getenv("DB_OPENSTACK_PASSWORD"),
         'HOST': os.getenv("DB_OPENSTACK_HOST"),
         'PORT': os.getenv("DB_OPENSTACK_PORT"),
+        'TEST': {
+            'MIRROR': 'openstack_db',
+        },
     }
 }
 
