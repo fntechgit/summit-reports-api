@@ -15,7 +15,6 @@ from django.db import models
 from django.db.models import When, OuterRef, Subquery, PositiveIntegerField, Case, IntegerField, Q, Count, F
 from django.db.models.functions import Coalesce
 from graphene import Int, ObjectType, Float, String, List, Boolean
-from graphene_django.fields import DjangoListField
 from graphene_django_extras import DjangoListObjectType, DjangoSerializerType, DjangoObjectType, DjangoListObjectField, \
     DjangoObjectField, LimitOffsetGraphqlPagination
 
@@ -27,10 +26,12 @@ from reports_api.reports.models import \
     Member, Affiliation, Organization, AbstractLocation, VenueRoom, SpeakerPromoCode, EventType, EventFeedback, \
     Rsvp, RsvpTemplate, RsvpAnswer, RsvpQuestion, RsvpQuestionMulti, RsvpQuestionValue, PresentationMaterial, \
     PresentationVideo, Tag, MediaUpload, MediaUploadType, Metric, SponsorMetric, EventMetric, Sponsor, SponsorshipType, \
-    Company, SummitOrderExtraQuestionType, ExtraQuestionType, SummitTicket, SummitAttendee, SummitOrderExtraQuestionAnswer
+    Company, SummitOrderExtraQuestionType, ExtraQuestionType, SummitTicket, SummitAttendee, \
+    SummitOrderExtraQuestionAnswer, SelectedPresentation
 from .serializers.model_serializers import PresentationSerializer, SpeakerSerializer, RsvpSerializer, \
     EventCategorySerializer, AttendeeSerializer, SummitTicketSerializer, TicketTypeSerializer, BadgeSerializer, \
     BadgeTypeSerializer, BadgeFeatureSerializer, OrderExtraQuestionSerializer, OrderExtraQuestionAnswerSerializer
+from .utils.custom_dictionary import CustomDictionary
 
 
 class SubqueryCount(Subquery):
@@ -153,7 +154,7 @@ class OrganizationNode(DjangoObjectType):
 
 
 class SummitNode(DjangoObjectType):
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = List(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_unique_metrics(self, info, metricType="", fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = '{type}'".format(type=metricType) if metricType else ''
@@ -201,7 +202,7 @@ class LocationNode(DjangoObjectType):
 
 
 class VenueRoomNode(DjangoObjectType):
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = List(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_unique_metrics(self, info, metricType='ROOM', metricSubType='', fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = '{type}' AND MetE.SummitVenueRoomID = {id}".format(type=metricType, id=self.id) if metricType else ''
@@ -367,7 +368,7 @@ class EventMetricNode(DjangoObjectType):
 
 class SponsorNode(DjangoObjectType):
     company_name = String()
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = List(MetricRowType, metricType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_unique_metrics(self, info, metricType='', fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
         type_filter = "Met.Type = 'SPONSOR' AND MetS.SponsorID = {id}".format(id=self.id)
@@ -415,7 +416,7 @@ class SummitEventNode(DjangoObjectType):
     speaker_count = Int()
     attendee_count = Int()
     unique_metric_count = Int()
-    unique_metrics = DjangoListField(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
+    unique_metrics = List(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
     def resolve_speaker_count(self, info):
         return self.presentation.speakers.count() if hasattr(self,
@@ -458,7 +459,7 @@ class PresentationNode(DjangoObjectType):
     all_media_uploads = String()
     media_upload_videos = String()
     media_upload_slides = String()
-    unique_metrics = DjangoListField(String)
+    unique_metrics = List(String)
     unique_metric_count = Int()
 
     def resolve_speaker_count(self, info):
@@ -585,10 +586,23 @@ class PresentationNode(DjangoObjectType):
     class Meta:
         model = Presentation
 
+class StatusType(ObjectType):
+    presentation_id = String()
+    status = String()
+    track_id = String()
+    track = String()
+
+    def __init__(self, presentation_id, status, track_id, track, **kwargs):
+        super().__init__(**kwargs)
+        self.presentation_id = presentation_id
+        self.status = status
+        self.track_id = track_id
+        self.track = track
+
 
 class SpeakerNode(DjangoObjectType):
-    presentations = DjangoListField(PresentationNode, summitId=Int())
-    presentation_count = Int()
+    presentations = List(PresentationNode, summitId=Int())
+    presentation_count = Int(summitId=Int())
     presentation_titles = String(summitId=Int())
     feedback_count = Int(summitId=Int())
     feedback_avg = Float(summitId=Int())
@@ -599,12 +613,16 @@ class SpeakerNode(DjangoObjectType):
     role = String()
     role_by_summit = String(summitId=Int())
     paid_tickets = String(summitId=Int())
+    selection_plan = String(summitId=Int())
+    submission_status = List(StatusType, summitId=Int())
+    selection_status = List(StatusType, summitId=Int())
+    tracks = String(summitId=Int())
 
     def resolve_presentations(self, info, summitId):
         return self.presentations.filter(summit_id=summitId)
 
-    def resolve_presentation_count(self, info):
-        return self.presentations.count()
+    def resolve_presentation_count(self, info, summitId=0):
+        return self.presentations.filter(summit_id=summitId).count()
 
     def resolve_presentation_titles(self, info, summitId=0):
         presentations = list(self.presentations.filter(summit_id=summitId).values("title"))
@@ -696,6 +714,56 @@ class SpeakerNode(DjangoObjectType):
             return 'Yes' if attendee.tickets.filter(status='Paid', is_active=True).count() > 0 else 'No'
 
         return 'No'
+
+    def resolve_selection_plan(self, info, summitId):
+        selection_plan_names = []
+        seen_ids = set()
+        presentations = self.presentations.filter(summit_id=summitId)
+        for presentation in presentations:
+            if not presentation.selection_plan is None and presentation.selection_plan_id not in seen_ids:
+                seen_ids.add(presentation.selection_plan_id)
+                selection_plan_names.append(presentation.selection_plan.name)
+
+        return ' || '.join(x for x in selection_plan_names)
+
+    def resolve_submission_status(self, info, summitId):
+        results = []
+        seen_ids_and_statuses = set()
+        presentations = self.presentations.filter(summit_id=summitId)
+        for presentation in presentations:
+            if not presentation.submission_status:
+                continue
+            id_status_pair = (presentation.id, presentation.submission_status)
+            if id_status_pair not in seen_ids_and_statuses:
+                seen_ids_and_statuses.add(id_status_pair)
+                results.append(StatusType(presentation.id,
+                                          presentation.submission_status,
+                                          presentation.category.id,
+                                          presentation.category.title))
+
+        return results
+
+    def resolve_selection_status(self, info, summitId, **kwargs):
+        results = []
+        seen_ids_and_statuses = set()
+        presentations = self.presentations.filter(summit_id=summitId)
+        for presentation in presentations:
+            if not presentation.selection_status:
+                continue
+            id_status_pair = (presentation.id, presentation.selection_status)
+            if id_status_pair not in seen_ids_and_statuses:
+                seen_ids_and_statuses.add(id_status_pair)
+                results.append(StatusType(presentation.id,
+                                                   presentation.selection_status,
+                                                   presentation.category.id,
+                                                   presentation.category.title))
+        return results
+
+    def resolve_tracks(self, info, summitId):
+        category_titles = list(self.presentations.filter(summit_id=summitId).values("category__title"))
+        unique_titles = set(x.get("category__title") for x in category_titles)
+        return ' || '.join(unique_titles)
+
     class Meta(object):
         model = Speaker
 
@@ -779,11 +847,6 @@ class SummitOrderExtraQuestionAnswerNode(DjangoObjectType):
 
 
 # ---------------------------------------------------------------------------------
-
-class CustomDictionary(ObjectType):
-    key = String()
-    value = String()
-
 
 class SummitEventListType(DjangoListObjectType):
     class Meta:

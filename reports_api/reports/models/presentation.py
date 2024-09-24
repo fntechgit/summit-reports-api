@@ -12,9 +12,13 @@
 """
 
 from django.db import models
+from django.db.models import Q
+
+from .constants import SubmissionStatus, PresentationStatus, PresentationListType, SelectionStatus, \
+    PresentationListClass, SelectedPresentationCollection
 from .speaker import Speaker, Member
 from .summit_event import SummitEvent
-
+from .selection_plan import SelectionPlan
 
 class Presentation(SummitEvent):
     status = models.TextField(db_column='Status')
@@ -25,12 +29,59 @@ class Presentation(SummitEvent):
     summitevent_ptr = models.OneToOneField(
         SummitEvent, on_delete=models.CASCADE, parent_link=True, db_column='ID')
 
-    speakers = models.ManyToManyField(Speaker, related_name='presentations', through='PresentationSpeakers',
-                                       through_fields=('presentation_id', 'speaker_id'))
+    speakers = models.ManyToManyField(
+        Speaker, related_name='presentations', through='PresentationSpeakers',through_fields=('presentation_id', 'speaker_id'))
 
     moderator = models.ForeignKey(
         Speaker, related_name='moderated_presentations', db_column='ModeratorID', on_delete=models.CASCADE, null=True)
 
+    selection_plan = models.ForeignKey(
+        SelectionPlan, related_name='presentations', db_column='SelectionPlanID', on_delete=models.CASCADE, null=True)
+
+    @property
+    def submission_status(self):
+        status = ''
+        if self.status == PresentationStatus.RECEIVED and self.published == 1:
+            status = SubmissionStatus.ACCEPTED
+        elif self.status == PresentationStatus.RECEIVED and self.published == 0:
+            status = SubmissionStatus.RECEIVED
+        elif self.published == 0:
+            status = SubmissionStatus.NON_RECEIVED
+
+        return status
+
+    @property
+    def selection_status(self):
+        if self.published:
+            return SelectionStatus.ACCEPTED
+
+        selected_presentations = self.selected_presentations.filter(
+            collection=SelectedPresentationCollection.SELECTED,
+            list__list_type=PresentationListType.GROUP,
+            list__list_class=PresentationListClass.SESSION)
+
+        if selected_presentations.count() > 1:
+            return ''
+
+        if selected_presentations.count() == 0:
+            return SelectionStatus.REJECTED
+
+        selected_presentation = selected_presentations.first()
+
+        if selected_presentation.order <= selected_presentation.list.category.session_count:
+            return SelectionStatus.ACCEPTED
+
+        return SelectionStatus.ALTERNATE
+
+    @property
+    def is_accepted(self):
+        return self.selected_presentations.filter(
+            order__isnull=False,
+            order__lte=self.category.session_count,
+            list__list_type=PresentationListType.GROUP,
+            list__list_class=PresentationListClass.SESSION,
+            list__category__id=self.category.id
+        ).exists() or self.published
 
     def __str__(self):
         return self.id
@@ -41,8 +92,6 @@ class Presentation(SummitEvent):
         except:
             return False
         return True
-
-
 
     class Meta:
         app_label = 'reports'

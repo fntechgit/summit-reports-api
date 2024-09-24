@@ -25,6 +25,8 @@ class Speaker(models.Model):
     twitter_name = models.TextField(db_column='TwitterName', max_length=500, null=True)
     company = models.TextField(db_column="Company", max_length=500, null=True)
     phone_number = models.TextField(db_column="PhoneNumber", max_length=50, null=True)
+    photo_id = models.IntegerField(db_column='PhotoID', null=True)
+    big_photo_id = models.IntegerField(db_column='BigPhotoID', null=True)
 
     member = models.OneToOneField(Member, on_delete=models.CASCADE, db_column='MemberID', null=True)
 

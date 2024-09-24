@@ -1,20 +1,26 @@
-from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, EventCategory, Tag, Metric, SummitAttendee
+from django.db.models import Subquery, Q, F, Exists, OuterRef, Case, When, Value, BooleanField
+
+from reports_api.reports.models import SummitEvent, Speaker, Presentation, RsvpTemplate, Rsvp, EventFeedback, \
+    EventCategory, Tag, Metric, SummitAttendee, SelectedPresentation
 import django_filters
 from django.db import models
 from functools import reduce
 
-class SubQueryCount(models.Subquery):
+from reports_api.reports.models.constants import SelectionStatus, SubmissionStatus
+
+
+class SubQueryCount(Subquery):
     output_field = models.IntegerField()
     def __init__(self, *args, **kwargs):
-        models.Subquery.__init__(self, *args, **kwargs)
+        Subquery.__init__(self, *args, **kwargs)
         self.queryset = self.queryset.annotate(cnt=models.Count("*")).values("cnt")
         self.queryset.query.set_group_by()  # values() adds a GROUP BY we don't want here
 
 
-class SubQueryAvg(models.Subquery):
+class SubQueryAvg(Subquery):
     output_field = models.FloatField()
     def __init__(self, *args, **kwargs):
-        models.Subquery.__init__(self, *args, **kwargs)
+        Subquery.__init__(self, *args, **kwargs)
         field = kwargs['field']
         self.queryset = self.queryset.annotate(avg=models.Avg(field)).values("avg")
         self.queryset.query.set_group_by()  # values() adds a GROUP BY we don't want here
@@ -31,9 +37,9 @@ class SummitEventFilter(django_filters.FilterSet):
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(title__icontains=value) |
-            models.Q(category__title__icontains=value) |
-            models.Q(presentation__speakers__last_name=value)
+            Q(title__icontains=value) |
+            Q(category__title__icontains=value) |
+            Q(presentation__speakers__last_name=value)
         )
 
         return queryset.distinct()
@@ -61,17 +67,17 @@ class PresentationFilter(django_filters.FilterSet):
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(title__icontains=value) |
-            models.Q(abstract__icontains=value) |
-            models.Q(speakers__last_name=value) |
-            models.Q(speakers__member__email=value)
+            Q(title__icontains=value) |
+            Q(abstract__icontains=value) |
+            Q(speakers__last_name=value) |
+            Q(speakers__member__email=value)
         )
         return queryset.distinct()
 
     def room_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(category__title=value) |
-            models.Q(category__code=value)
+            Q(category__title=value) |
+            Q(category__code=value)
         )
         return queryset
 
@@ -95,6 +101,8 @@ class PresentationFilter(django_filters.FilterSet):
 class SpeakerFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(method='has_events_from_summit_filter')
     published_in = django_filters.NumberFilter(method='has_published_events_from_summit_filter')
+    has_bio = django_filters.BooleanFilter(method='has_bio_filter')
+    has_photo = django_filters.BooleanFilter(method='has_photo_filter')
     search = django_filters.CharFilter(method='search_filter')
     has_feedback_for_summit = django_filters.NumberFilter(method='feedback_filter')
     track = django_filters.BaseInFilter(field_name='presentations__category__id')
@@ -103,6 +111,10 @@ class SpeakerFilter(django_filters.FilterSet):
     registered_for_summit = django_filters.CharFilter(method='registered_filter')
     paidtickets_for_summit = django_filters.CharFilter(method='paid_tickets_filter')
     attending_media_for_summit = django_filters.CharFilter(method='attending_media_filter')
+    selection_plan = django_filters.CharFilter(method='selection_plan_filter')
+    selection_plan_id_in = django_filters.CharFilter(method='selection_plan_id_in_filter', lookup_expr='in')
+    submission_status = django_filters.CharFilter(method='submission_status_filter', lookup_expr='in')
+    selection_status = django_filters.CharFilter(method='selection_status_filter')
 
     class Meta:
         model = Speaker
@@ -110,34 +122,43 @@ class SpeakerFilter(django_filters.FilterSet):
 
     def has_events_from_summit_filter(self, queryset, name, value):
         return queryset.filter(
-            models.Q(presentations__summit__id=value) |
-            models.Q(moderated_presentations__summit__id=value)
+            Q(presentations__summit__id=value) |
+            Q(moderated_presentations__summit__id=value)
         ).distinct()
 
     def has_published_events_from_summit_filter(self, queryset, name, value):
         return queryset.filter(
-            models.Q(presentations__summit__id=value, presentations__published=True) |
-            models.Q(moderated_presentations__summit__id=value, moderated_presentations__published=True)
+            Q(presentations__summit__id=value, presentations__published=True) |
+            Q(moderated_presentations__summit__id=value, moderated_presentations__published=True)
         ).distinct()
 
     def has_events_on_category_filter(self, queryset, name, value):
         return queryset.filter(presentations__category__id=value).distinct()
 
+    def has_bio_filter(self, queryset, name, value):
+        filter_condition = Q(bio="") | Q(bio__isnull=True) if not value else ~Q(bio="") & Q(bio__isnull=False)
+        return queryset.filter(filter_condition).distinct()
+
+    def has_photo_filter(self, queryset, name, value):
+        filter_condition = Q(photo_id__isnull=True) & Q(big_photo_id__isnull=True) if not value \
+            else Q(photo_id__isnull=False) | Q(big_photo_id__isnull=False)
+        return queryset.filter(filter_condition).distinct()
+
     def confirmed_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         confirmed = values[1] == 'true'
         return queryset.filter(attendances__summit__id=summit_id, attendances__confirmed=confirmed).distinct()
 
     def registered_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         registered = values[1] == 'true'
         return queryset.filter(attendances__summit__id=summit_id, attendances__registered=registered).distinct()
 
     def checked_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         checked = values[1] == 'true'
         return queryset.filter(attendances__summit__id=summit_id, attendances__checked_in=checked).distinct()
 
@@ -148,27 +169,174 @@ class SpeakerFilter(django_filters.FilterSet):
         return queryset.filter(member__attendee_profiles__summit__id=summit_id, member__attendee_profiles__tickets__status='Paid').distinct()
 
     def attending_media_filter(self, queryset, name, value):
-        values = value.split(',');
-        summit_id = values[0];
+        values = value.split(',')
+        summit_id = values[0]
         attending = values[1] == 'true'
         return queryset.filter(presentations__summit__id=summit_id, presentations__attending_media=attending).distinct()
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(last_name__icontains=value) |
-            models.Q(member__email__icontains=value) |
-            models.Q(presentations__title__icontains=value) |
-            models.Q(registration__email__icontains=value)
+            Q(last_name__icontains=value) |
+            Q(member__email__icontains=value) |
+            Q(presentations__title__icontains=value) |
+            Q(registration__email__icontains=value)
         )
         return queryset.distinct()
 
     def feedback_filter(self, queryset, name, value):
-        feedbacks = EventFeedback.objects.filter(event__presentation__speakers=models.OuterRef('id'), event__summit__id=value)
+        feedbacks = EventFeedback.objects.filter(event__presentation__speakers=OuterRef('id'), event__summit__id=value)
 
-        queryTmp = queryset.annotate(has_feedback=models.Exists(feedbacks)).filter(has_feedback=True)
+        queryTmp = queryset.annotate(has_feedback=Exists(feedbacks)).filter(has_feedback=True)
         queryTmp = queryTmp.annotate(rate=SubQueryAvg(feedbacks, field="rate"))
 
         return queryTmp
+
+    def selection_plan_filter(self, queryset, name, value):
+        summit_id = self.data.get('summit_id', None)
+        if summit_id is not None:
+            return queryset.filter(presentations__selection_plan__name__icontains=value, presentations__summit__id=summit_id).distinct()
+
+        return queryset.filter(presentations__selection_plan__name__icontains=value).distinct()
+
+    def selection_plan_id_in_filter(self, queryset, name, value):
+        ids = value.split(',')
+        summit_id = self.data.get('summit_id', None)
+        if summit_id is not None:
+            return queryset.filter(presentations__selection_plan__id__in=ids, presentations__summit__id=summit_id).distinct()
+
+        return queryset.filter(presentations__selection_plan__id__in=ids).distinct()
+
+    def submission_status_filter(self, queryset, name, value):
+        statuses = value.split(',')
+        q_objects = Q()
+        summit_id = self.data.get('summit_id', None)
+
+        if summit_id is not None:
+            queryset = queryset.filter(presentations__summit__id=summit_id)
+
+        queryset = queryset.annotate(
+            accepted=Case(
+                When(
+                    Q(presentations__status='Received') & Q(presentations__published=True),
+                    then=Value(True)
+                ),
+                default=Value(False),
+                output_field=BooleanField()
+            )
+        )
+        queryset = queryset.annotate(
+            received=Case(
+                When(
+                    Q(presentations__status='Received') & Q(presentations__published=False),
+                    then=Value(True)
+                ),
+                default=Value(False),
+                output_field=BooleanField()
+            )
+        )
+        queryset = queryset.annotate(
+            non_received=Case(
+                When(
+                    Q(presentations__status__isnull=True) | Q(presentations__status='NonReceived'),
+                    presentations__published=False,
+                    then=Value(True)
+                ),
+                default=Value(False),
+                output_field=BooleanField()
+            )
+        )
+
+        for status in statuses:
+            match status.strip().lower():
+                case SubmissionStatus.ACCEPTED:
+                    q_objects |= Q(accepted=True)
+                case SubmissionStatus.RECEIVED:
+                    q_objects |= Q(received=True)
+                case SubmissionStatus.NON_RECEIVED:
+                    q_objects |= Q(non_received=True)
+                case _:
+                    pass
+
+        return queryset.filter(q_objects)
+
+
+    def selection_status_filter(self, queryset, name, value):
+        statuses = value.split(',')
+        q_objects = Q()
+        summit_id = self.data.get('summit_id', None)
+
+        selected_presentations_qs = SelectedPresentation.objects.filter(presentation_id=OuterRef('presentations__id'))
+
+        if summit_id is not None:
+            selected_presentations_qs = selected_presentations_qs.filter(presentation__summit__id=summit_id)
+
+        for status in statuses:
+            status = status.strip().lower()
+            match status:
+                case SelectionStatus.SELECTED:
+                    selected_presentations_qs = selected_presentations_qs.filter(
+                        list__list_type='Group',
+                        list__category__id=F("list__category__id"),
+                        collection='selected'
+                    ).exclude(list__list_class='Lightning')
+                case SelectionStatus.ACCEPTED:
+                    selected_presentations_qs = selected_presentations_qs.filter(
+                        presentation__published=True,
+                        list__list_type='Group',
+                        list__list_class='Session',
+                        order__lte=F("list__category__session_count")
+                    ).exclude(list__list_class='Lightning')
+                case SelectionStatus.REJECTED:
+                    selected_presentations_qs = selected_presentations_qs.filter(
+                        Q(presentation__published=False) &
+                        ~Q(list__list_type='Group',
+                           list__list_class='Session',
+                           collection='selected')
+                    )
+                case SelectionStatus.ALTERNATE:
+                    selected_presentations_qs = selected_presentations_qs.filter(
+                        list__list_type='Group',
+                        list__list_class='Session',
+                        list__category__id=F("list__category__id"),
+                        order__gt=F("list__category__session_count")
+                    ).exclude(list__list_class='Lightning')
+                case SelectionStatus.LIGHTNING_ACCEPTED:
+                    selected_presentations_qs = selected_presentations_qs.filter(
+                        presentation__published=True,
+                        list__list_type='Group',
+                        list__list_class='Lightning',
+                        list__category__id=F("list__category__id"),
+                        order__lte=F("list__category__lightning_count")
+                    )
+                case SelectionStatus.LIGHTNING_ALTERNATE:
+                    selected_presentations_qs = selected_presentations_qs.filter(
+                        presentation__published=True,
+                        list__list_type='Group',
+                        list__list_class='Lightning',
+                        list__category__id=F("list__category__id"),
+                        order__gt=F("list__category__lightning_count")
+                    )
+                case _:
+                    pass
+
+            queryset = queryset.annotate(
+                **{
+                    status: Case(
+                        When(
+                            Exists(selected_presentations_qs),
+                            then=Value(True)
+                        ),
+                        default=Value(False),
+                        output_field=BooleanField()
+                    )
+                }
+            )
+
+            filter_kwargs = {status: True}
+            q_objects |= Q(**filter_kwargs)
+
+        return queryset.filter(q_objects)
+
 
 class AttendeeFilter(django_filters.FilterSet):
     summit_id = django_filters.NumberFilter(field_name='summit__id')
@@ -188,8 +356,8 @@ class AttendeeFilter(django_filters.FilterSet):
 
     def feature_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(tickets__badge__features__id__in=value) |
-            models.Q(tickets__badge__type__features__id__in=value)
+            Q(tickets__badge__features__id__in=value) |
+            Q(tickets__badge__type__features__id__in=value)
         )
         return queryset.distinct()
 
@@ -207,16 +375,16 @@ class AttendeeFilter(django_filters.FilterSet):
             # This empty query is not working
             if answer_values[0] == 'empty':
                 query_answers.append(
-                    queryset.exclude(models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False))
+                    queryset.exclude(Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False))
                 )
             elif answer_values[0] == 'notempty':
                 query_answers.append(
-                    queryset.filter(models.Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False))
+                    queryset.filter(Q(extra_question_answers__question__id=question_id, extra_question_answers__value__isnull=False))
                 )
             else:
                 for ans in answer_values:
                     query_answers.append(
-                        queryset.filter(models.Q(extra_question_answers__question__id=question_id,extra_question_answers__value__icontains=ans))
+                        queryset.filter(Q(extra_question_answers__question__id=question_id,extra_question_answers__value__icontains=ans))
                     )
 
 
@@ -230,9 +398,9 @@ class AttendeeFilter(django_filters.FilterSet):
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(surname__icontains=value) |
-            models.Q(email__icontains=value) |
-            models.Q(company_name__icontains=value)
+            Q(surname__icontains=value) |
+            Q(email__icontains=value) |
+            Q(company_name__icontains=value)
         )
         return queryset.distinct()
 
@@ -243,11 +411,11 @@ class RsvpFilter(django_filters.FilterSet):
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(event__title__icontains=value) |
-            models.Q(event__category__title__icontains=value) |
-            models.Q(submitter__last_name=value) |
-            models.Q(submitter__email=value) |
-            models.Q(event__presentation__speakers__last_name=value)
+            Q(event__title__icontains=value) |
+            Q(event__category__title__icontains=value) |
+            Q(submitter__last_name=value) |
+            Q(submitter__email=value) |
+            Q(event__presentation__speakers__last_name=value)
         )
 
         return queryset.distinct()
@@ -279,11 +447,11 @@ class EventFeedbackFilter(django_filters.FilterSet):
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(event__title__icontains=value) |
-            models.Q(event__category__title__icontains=value) |
-            models.Q(owner__last_name=value) |
-            models.Q(owner__email=value) |
-            models.Q(event__presentation__speakers__last_name=value)
+            Q(event__title__icontains=value) |
+            Q(event__category__title__icontains=value) |
+            Q(owner__last_name=value) |
+            Q(owner__email=value) |
+            Q(event__presentation__speakers__last_name=value)
         )
 
         return queryset.distinct()
@@ -295,9 +463,9 @@ class EventCategoryFilter(django_filters.FilterSet):
     has_feedback = django_filters.BooleanFilter(method='feedback_filter')
 
     def feedback_filter(self, queryset, name, value):
-        feedbacks = EventFeedback.objects.filter(event__summit__id=models.OuterRef('summit__id'), event__category__id=models.OuterRef('id'))
+        feedbacks = EventFeedback.objects.filter(event__summit__id=OuterRef('summit__id'), event__category__id=OuterRef('id'))
 
-        queryTmp = queryset.annotate(has_feedback=models.Exists(feedbacks)).filter(has_feedback=True)
+        queryTmp = queryset.annotate(has_feedback=Exists(feedbacks)).filter(has_feedback=True)
         queryTmp = queryTmp.annotate(rate=SubQueryAvg(feedbacks, field="rate"))
 
         return queryTmp
@@ -315,13 +483,13 @@ class TagFilter(django_filters.FilterSet):
     search = django_filters.CharFilter(method='search_filter')
 
     def has_events_from_summit_filter(self, queryset, name, value):
-        queryTmp = queryset.annotate(count=models.Count('events', filter=models.Q(events__summit__id=value)))
+        queryTmp = queryset.annotate(count=models.Count('events', filter=Q(events__summit__id=value)))
         return queryTmp.distinct().filter(count__gt=0)
 
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(tag__icontains=value)
+            Q(tag__icontains=value)
         )
 
         return queryset.distinct()
@@ -353,10 +521,10 @@ class MetricFilter(django_filters.FilterSet):
 
     def search_filter(self, queryset, name, value):
         queryset = queryset.filter(
-            models.Q(member__email__icontains=value) |
-            models.Q(member__last_name__icontains=value)|
-            models.Q(eventmetric__attendee__email__icontains=value)|
-            models.Q(eventmetric__room__name__icontains=value)
+            Q(member__email__icontains=value) |
+            Q(member__last_name__icontains=value)|
+            Q(eventmetric__attendee__email__icontains=value)|
+            Q(eventmetric__room__name__icontains=value)
         )
 
         return queryset
