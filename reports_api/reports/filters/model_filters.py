@@ -89,7 +89,10 @@ class PresentationFilter(django_filters.FilterSet):
         return queryset.annotate(feedback_count=models.Count('feedback'), rate=models.Avg('feedback__rate')).filter(feedback_count__gt=0)
 
     def video_filter(self, queryset, name, value):
-        return queryset.annotate(video_count=models.Count('materials__presentationvideo')).filter(video_count__gt=0)
+        return queryset.annotate(video_count=models.Count('materials__presentationvideo')).filter(
+            Q(video_count__gt=0) |
+            Q(to_record=True)
+        )
 
     def status_filter(self, queryset, name, value):
         if (value == 'null') :
