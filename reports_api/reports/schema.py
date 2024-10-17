@@ -116,7 +116,8 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, onlyFinished, search, s
             ) SEPARATOR '|') AS Answers \
         FROM SummitMetric Met \
         LEFT JOIN SummitEventAttendanceMetric MetE ON (Met.ID = MetE.ID) \
-        LEFT JOIN SummitAbstractLocation L ON (L.ID = MetE.SummitVenueRoomID) \
+        LEFT JOIN SummitEvent EV ON (EV.ID = MetE.SummitEventID) \
+        LEFT JOIN SummitAbstractLocation L ON (L.ID = EV.LocationID) \
         LEFT JOIN SummitSponsorMetric MetS ON (Met.ID = MetS.ID) \
         LEFT JOIN Member M ON (Met.MemberID = M.ID) \
         LEFT JOIN SummitAttendee Att ON (Att.MemberID = M.ID) \
@@ -204,8 +205,8 @@ class LocationNode(DjangoObjectType):
 class VenueRoomNode(DjangoObjectType):
     unique_metrics = List(MetricRowType, metricType=String(), metricSubType=String(), fromDate=String(), toDate=String(), onlyFinished=Boolean(), search=String(), sortBy=String(), sortDir=String())
 
-    def resolve_unique_metrics(self, info, metricType='ROOM', metricSubType='', fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
-        type_filter = "Met.Type = '{type}' AND MetE.SummitVenueRoomID = {id}".format(type=metricType, id=self.id) if metricType else ''
+    def resolve_unique_metrics(self, info, metricType='EVENT', metricSubType='', fromDate="", toDate="", onlyFinished=False, search="", sortBy='M.FirstName', sortDir='ASC'):
+        type_filter = "Met.Type = 'EVENT' AND EV.LocationID = {id}".format(id=self.id)
         type_filter = "{filter} AND MetE.SubType = '{subtype}'".format(filter=type_filter, subtype=metricSubType) if metricSubType else type_filter
         return getUniqueMetrics(self, type_filter, fromDate, toDate, onlyFinished, search, self.summit.id, sortBy, sortDir)
 
