@@ -15,11 +15,11 @@
 import graphene
 
 import reports_api.reports.schema
-
+from graphene_django_extras import all_directives
 
 class Query(reports_api.reports.schema.Query, graphene.ObjectType):
     # This class will inherit from multiple Queries
     # as we begin to add more apps to our project
     pass
 
-schema = graphene.Schema(query=Query)
+schema = graphene.Schema(query=Query, directives=all_directives)

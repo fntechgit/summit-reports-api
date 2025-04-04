@@ -1042,7 +1042,7 @@ class ExtraQuestionAnswerModelType(DjangoSerializerType):
 # ************************************************************************************
 
 
-class Query(ObjectType):
+class Query(object):
     events = DjangoListObjectField(SummitEventListType, filterset_class=SummitEventFilter)
     presentations = DjangoListObjectField(PresentationListType, filterset_class=PresentationFilter)
     presentation = DjangoObjectField(PresentationNode)
