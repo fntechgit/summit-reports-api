@@ -34,7 +34,11 @@ from django.urls import path
 from graphene_django.views import GraphQLView
 from django.views.decorators.csrf import csrf_exempt
 from reports_api.schema import schema
+from reports_api.openapi_views import schema_view, swagger_view, redoc_view
 
 urlpatterns = [
-    path('reports', csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema)))
+    path('reports', csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema))),
+    path('openapi', schema_view, name='openapi-schema'),
+    path('api/docs', swagger_view, name='swagger-ui'),
+    path('api/redoc', redoc_view, name='redoc'),
 ]

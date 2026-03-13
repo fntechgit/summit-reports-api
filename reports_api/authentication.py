@@ -22,9 +22,12 @@ class TokenValidationMiddleware(object):
     def __init__(self, get_response):
         self.get_response = get_response
 
+    EXEMPT_PATHS = ('/openapi', '/api/docs', '/api/redoc')
+
     def __call__(self, request):
-        #return self.get_response(request)
-        
+        if request.path.rstrip('/') in self.EXEMPT_PATHS:
+            return self.get_response(request)
+
         try:
             access_token = TokenValidationMiddleware.get_access_token(request)
             if access_token is None:
