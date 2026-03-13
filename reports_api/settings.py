@@ -30,6 +30,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 # Application definition
 
@@ -39,7 +40,9 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'graphene_django',
     'django_filters',
-    'corsheaders'
+    'corsheaders',
+    'rest_framework',
+    'drf_spectacular',
 ]
 
 GRAPHENE = {
@@ -185,4 +188,44 @@ GRAPHENE_DJANGO_EXTRAS = {
     'MAX_PAGE_SIZE': 3000,
     'CACHE_ACTIVE': True,
     'CACHE_TIMEOUT': 300    # seconds
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'UNAUTHENTICATED_USER': None,
+}
+
+# OpenAPI - Spectacular
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Summit Reports API',
+    'DESCRIPTION': (
+        'Read-only GraphQL reporting API for OpenStack/OpenInfra summit data. '
+        'Exposes aggregated metrics, speaker lists, presentation details, attendee information, '
+        'and room/event statistics for a given summit. '
+        'All queries are served through a single GraphQL endpoint (`/reports`) '
+        'and require OAuth2 bearer token authentication.'
+    ),
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'OAS_VERSION': '3.1.0',
+    'POSTPROCESSING_HOOKS': ['reports_api.openapi_hooks.custom_postprocessing_hook'],
+    'TAGS': [
+        {'name': 'Public', 'description': 'Unauthenticated read endpoints'},
+        {'name': 'Private', 'description': 'OAuth2-protected write endpoints'},
+    ],
+    'SECURITY': [{'OAuth2': []}],
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'OAuth2': {
+                'type': 'oauth2',
+                'flows': {
+                    'clientCredentials': {
+                        'tokenUrl': '{}/oauth/token'.format(os.getenv('IDP_BASE_URL', 'http://localhost:8003')),
+                        'scopes': {},
+                    },
+                },
+            },
+        },
+    },
 }
