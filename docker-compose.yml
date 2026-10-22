@@ -34,7 +34,7 @@ services:
   db:
     image: mysql:8.4
     container_name: summit-report-api-db-local
-    command: --sql_mode=NO_ENGINE_SUBSTITUTION
+    command: --mysql-native-password=ON --sql_mode=NO_ENGINE_SUBSTITUTION
     restart: unless-stopped
     ports:
       - "33006:3306"
