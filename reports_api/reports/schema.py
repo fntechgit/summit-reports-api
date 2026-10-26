@@ -103,10 +103,11 @@ def getUniqueMetrics(self, typeFilter, fromDate, toDate, onlyFinished, search, s
     filterString = " AND ".join(filterQuery)
 
     distinct_members = self.metrics.raw("\
-        SELECT Met.ID, Met.Ip AS MetricIp, Met.MemberID AS MemberId, Att2.ID AS AttendeeId, MetE.SubType AS MSubType, COALESCE(Att2.ID, Att.ID, M.ID) AS UserId, \
-        MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress, COALESCE(Att2.FirstName, Att.FirstName, M.FirstName, '') AS FirstName, \
-        COALESCE(Att2.Surname, Att.Surname, M.Surname, '') AS LastName, COALESCE(Att2.Company, Att.Company, '') AS Company, \
-        COALESCE(Att2.Email, Att.Email, M.Email, '') AS Email, \
+        SELECT ANY_VALUE(Met.ID) AS ID, ANY_VALUE(Met.Ip) AS MetricIp, ANY_VALUE(Met.MemberID) AS MemberId, ANY_VALUE(Att2.ID) AS AttendeeId, \
+        ANY_VALUE(MetE.SubType) AS MSubType, ANY_VALUE(COALESCE(Att2.ID, Att.ID, M.ID)) AS UserId, \
+        MIN(Met.IngressDate) AS Ingress, MAX(Met.OutgressDate) AS Outgress, ANY_VALUE(COALESCE(Att2.FirstName, Att.FirstName, M.FirstName, '')) AS FirstName, \
+        ANY_VALUE(COALESCE(Att2.Surname, Att.Surname, M.Surname, '')) AS LastName, ANY_VALUE(COALESCE(Att2.Company, Att.Company, '')) AS Company, \
+        ANY_VALUE(COALESCE(Att2.Email, Att.Email, M.Email, '')) AS Email, \
             GROUP_CONCAT(CONCAT(QType.ID, ':', \
                 CASE \
                     WHEN QType.Type IN ('ComboBox','RadioButtonList') THEN QValue.value \
