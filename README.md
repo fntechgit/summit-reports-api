@@ -20,6 +20,9 @@ After cloning:
   - python ./manage.py migrate
   - python ./manage.py runserver
   - go to http://localhost:8000/reports?access_token=xxx
+  - health check: public, unauthenticated liveness endpoint that touches no database, Redis or IDP
+    (TokenValidationMiddleware skips everything under /api/public/):
+    GET /api/public/v1/health   ->  200 "ok" (text/plain)
   - Example: 
     TAG REPORT 
     {

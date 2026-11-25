@@ -30,11 +30,18 @@ Including another URLconf
 """
 
 
-from django.urls import path
+from django.urls import path, include
 from graphene_django.views import GraphQLView
 from django.views.decorators.csrf import csrf_exempt
 from reports_api.schema import schema
+from reports_api.reports.views import health
+
+# unauthenticated routes: TokenValidationMiddleware skips everything under /api/public/
+public_urlpatterns = [
+    path('health', health, name='health'),
+]
 
 urlpatterns = [
-    path('reports', csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema)))
+    path('reports', csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema))),
+    path('api/public/v1/', include(public_urlpatterns)),
 ]

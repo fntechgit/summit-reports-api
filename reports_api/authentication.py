@@ -17,6 +17,9 @@ from django.conf import settings
 import requests, logging, sys
 from django.core.cache import cache
 
+# routes mounted here (the liveness probe) need no access token; see public_urlpatterns in reports_api/urls.py
+PUBLIC_PATH_PREFIX = '/api/public/'
+
 
 class TokenValidationMiddleware(object):
     def __init__(self, get_response):
@@ -24,7 +27,10 @@ class TokenValidationMiddleware(object):
 
     def __call__(self, request):
         #return self.get_response(request)
-        
+
+        if request.path_info.startswith(PUBLIC_PATH_PREFIX):
+            return self.get_response(request)
+
         try:
             access_token = TokenValidationMiddleware.get_access_token(request)
             if access_token is None:
